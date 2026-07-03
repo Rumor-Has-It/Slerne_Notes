@@ -1,0 +1,18 @@
+# Backups from image transcoding
+*.rle.bak
+*.bak
+*.orig
+*.empty
+
+# WoW / user data (should never be published)
+SavedVariables/
+*.lua.bak
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*~
+.vscode/
+.idea/

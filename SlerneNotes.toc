@@ -1,0 +1,27 @@
+## Interface: 120005
+## Title: Slerne Notes
+## Notes: Organize raid members into custom categories with drag-and-drop
+## Author: Slerne
+## Version: 1.0.0
+## X-License: MIT
+## X-Credits: Custom art by tadogram (instagram.com/tadogram)
+## IconTexture: Interface\AddOns\SlerneNotes\img\theme\LogoMinimap
+## SavedVariables: SlerneNotesDB
+
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+Core.lua
+Data.lua
+data\Arenas.lua
+ui\Skin.lua
+ui\CanvasRenderer.lua
+ui\Dialogs.lua
+ui\Main.lua
+modules\Drawing.lua
+modules\Roster.lua
+modules\Registries.lua
+modules\Loot.lua
+ui\Config.lua
+ui\Minimap.lua
