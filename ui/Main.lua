@@ -3,7 +3,7 @@ local frame = SlerneNotes.frame
 
 frame:SetSize(1800, 1000)
 frame:SetPoint("CENTER")
-frame:SetFrameStrata("FULLSCREEN_DIALOG") -- Forces the addon to the top layer
+frame:SetFrameStrata("FULLSCREEN_DIALOG")
 frame:EnableMouse(true)
 frame:SetMovable(true)
 frame:RegisterForDrag("LeftButton")
@@ -11,24 +11,18 @@ frame:SetScript("OnDragStart", frame.StartMoving)
 frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
 frame:Hide()
 
--- Close the whole addon window with ESC (same as any Exit button).
 tinsert(UISpecialFrames, "SlerneNotesFrame")
 
--- Outer "main frame": starts at x=110 (tabs protrude into the left strip),
--- sits ABOVE idle tabs (so they tuck behind it) but BELOW the content panels.
 local bg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
 bg:SetPoint("TOPLEFT", frame, "TOPLEFT", 110, 0)
 bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
 bg:SetFrameLevel(frame:GetFrameLevel() + 5)
 SlerneNotes.Skin.OuterFrame(bg)
 
--- TAB BAR (Left Side) - transparent so the extruded tabs sit on the window
 local tabBar = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-tabBar:SetSize(90, 980) -- Increased width to fit longer text
+tabBar:SetSize(90, 980)
 tabBar:SetPoint("TOPLEFT", 10, -10)
 
--- Tabs extend past the tab bar so their right edge overlaps the content
--- panel's left edge (content starts ~16px past the tab bar) -> folder join.
 local btnNotes = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
 btnNotes:SetSize(108, 54); btnNotes:SetPoint("TOPRIGHT", tabBar, "TOPRIGHT", 22, -16)
 btnNotes:SetText("Notes")
@@ -50,7 +44,6 @@ local btnConfig = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
 btnConfig:SetSize(108, 54); btnConfig:SetPoint("TOPRIGHT", btnLoot, "BOTTOMRIGHT", 0, -10)
 btnConfig:SetText("Config")
 
--- Apply folder-tab styling + active-state tracking
 SlerneNotes.Skin.FolderTab(btnNotes)
 SlerneNotes.Skin.FolderTab(btnRoster)
 SlerneNotes.Skin.FolderTab(btnRegistries)
@@ -63,11 +56,6 @@ local function SetActiveTab(active)
     end
 end
 
--- TAB CONTAINERS - inset inside the outer frame so a margin of background
--- shows around the content (and the active tab connects into that margin).
--- Levels raised above the outer frame (bg) so the content draws in front of it.
--- Inset wide enough that the active folder tab joins the dark background margin
--- on the left, NOT the content panels -- so the player-list border stays whole.
 local CONTENT_INSET = 22
 local CONTENT_LEVEL = frame:GetFrameLevel() + 15
 
@@ -80,28 +68,29 @@ SlerneNotes.rosterTab = CreateFrame("Frame", nil, frame)
 SlerneNotes.rosterTab:SetPoint("TOPLEFT", bg, "TOPLEFT", CONTENT_INSET, -CONTENT_INSET)
 SlerneNotes.rosterTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
 SlerneNotes.rosterTab:SetFrameLevel(CONTENT_LEVEL)
-SlerneNotes.rosterTab:Hide() -- Hidden by default
+SlerneNotes.rosterTab:Hide()
 
 SlerneNotes.registriesTab = CreateFrame("Frame", nil, frame)
 SlerneNotes.registriesTab:SetPoint("TOPLEFT", bg, "TOPLEFT", CONTENT_INSET, -CONTENT_INSET)
 SlerneNotes.registriesTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
 SlerneNotes.registriesTab:SetFrameLevel(CONTENT_LEVEL)
-SlerneNotes.registriesTab:Hide() -- Hidden by default
+SlerneNotes.registriesTab:Hide()
 
 SlerneNotes.lootTab = CreateFrame("Frame", nil, frame)
 SlerneNotes.lootTab:SetPoint("TOPLEFT", bg, "TOPLEFT", CONTENT_INSET, -CONTENT_INSET)
 SlerneNotes.lootTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
 SlerneNotes.lootTab:SetFrameLevel(CONTENT_LEVEL)
-SlerneNotes.lootTab:Hide() -- Hidden by default
+SlerneNotes.lootTab:Hide()
 
 SlerneNotes.configTab = CreateFrame("Frame", nil, frame)
 SlerneNotes.configTab:SetPoint("TOPLEFT", bg, "TOPLEFT", CONTENT_INSET, -CONTENT_INSET)
 SlerneNotes.configTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
 SlerneNotes.configTab:SetFrameLevel(CONTENT_LEVEL)
-SlerneNotes.configTab:Hide() -- Hidden by default
+SlerneNotes.configTab:Hide()
 
--- TAB SWITCH LOGIC
+local currentTab = "notes"
 local function ShowOnly(tab)
+    currentTab = tab
     SlerneNotes.notesTab:SetShown(tab == "notes")
     SlerneNotes.rosterTab:SetShown(tab == "roster")
     SlerneNotes.registriesTab:SetShown(tab == "registries")
@@ -133,10 +122,38 @@ btnConfig:SetScript("OnClick", function()
     if SlerneNotes.RefreshConfigUI then SlerneNotes.RefreshConfigUI() end
 end)
 
--- Default active tab
 SetActiveTab(btnNotes)
 
--- EXISTING UI PARENTED TO NOTES TAB
+local tabOrder = {
+    { btn = btnNotes,      key = "notes" },
+    { btn = btnRoster,     key = "roster" },
+    { btn = btnRegistries, key = "registries" },
+    { btn = btnLoot,       key = "loot" },
+    { btn = btnConfig,     key = "config" },
+}
+
+function SlerneNotes.ApplyPluginVisibility()
+    local hidden = (Data_GetHiddenPlugins and Data_GetHiddenPlugins()) or {}
+    local prev
+    for _, t in ipairs(tabOrder) do
+        local hide = hidden[t.key] and t.key ~= "notes" and t.key ~= "config"
+        t.btn:SetShown(not hide)
+        if not hide then
+            t.btn:ClearAllPoints()
+            if prev then
+                t.btn:SetPoint("TOPRIGHT", prev, "BOTTOMRIGHT", 0, -10)
+            else
+                t.btn:SetPoint("TOPRIGHT", tabBar, "TOPRIGHT", 22, -16)
+            end
+            prev = t.btn
+        end
+        if hide and currentTab == t.key then
+            ShowOnly("notes")
+            SetActiveTab(btnNotes)
+        end
+    end
+end
+
 local footer = CreateFrame("Frame", nil, SlerneNotes.notesTab, "BackdropTemplate")
 footer:SetHeight(50)
 footer:SetPoint("BOTTOMLEFT", 0, 0)
@@ -167,8 +184,6 @@ function SlerneNotes.UpdateRaidList(roster)
     roster = roster or SlerneNotes:GetRoster()
     if not roster then return end
 
-    -- Players that are "used up" (greyed). Action List is excluded because the
-    -- same player can be assigned to multiple slots there.
     local assignedPlayers = {}
     local layout = Data_GetCurrentLayout()
     if layout then
@@ -185,8 +200,6 @@ function SlerneNotes.UpdateRaidList(roster)
         end
     end
 
-    -- Real group members first, then placeholder players that aren't (yet)
-    -- present as real players, piled at the bottom.
     local entries = {}
     for name in pairs(roster) do
         table.insert(entries, { name = name, isDummy = false })
@@ -207,12 +220,11 @@ function SlerneNotes.UpdateRaidList(roster)
             btn = CreateFrame("Button", nil, left, "UIPanelButtonTemplate")
             btn:SetSize(220, 25)
             btn:RegisterForClicks("LeftButtonUp", "RightButtonUp", "LeftButtonDown")
-            
+
             btn.icon = btn:CreateTexture(nil, "ARTWORK")
-            btn.icon:SetSize(20, 20)  -- role icon (20% larger, easier to read)
+            btn.icon:SetSize(20, 20)
             btn.icon:SetPoint("RIGHT", btn:GetFontString(), "LEFT", -4, 0)
 
-            -- Delete button (shown only for placeholder players)
             btn.deleteBtn = CreateFrame("Button", nil, btn)
             btn.deleteBtn:SetSize(16, 16)
             btn.deleteBtn:SetPoint("RIGHT", -3, 0)
@@ -244,7 +256,7 @@ function SlerneNotes.UpdateRaidList(roster)
                     elseif currentRole == "healer" then nextRole = "melee"
                     elseif currentRole == "melee" then nextRole = "ranged"
                     elseif currentRole == "ranged" then nextRole = "flag"
-                    end -- flag -> nil (no role) -> tank ...
+                    end
                     Data_SetRole(self.playerName, nextRole)
                     SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
                     SlerneNotes.UpdateModules()
@@ -264,8 +276,8 @@ function SlerneNotes.UpdateRaidList(roster)
                             end
                         end
                         SlerneNotes.draggingPlayer = nil
-                        if dropped then 
-                            SlerneNotes.UpdateModules() 
+                        if dropped then
+                            SlerneNotes.UpdateModules()
                             SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
                         end
                     end
@@ -278,8 +290,6 @@ function SlerneNotes.UpdateRaidList(roster)
                 if SlerneNotes.HighlightPlayerNotes then SlerneNotes.HighlightPlayerNotes(self.playerName, false) end
             end)
 
-            -- Skinned last so its hover hooks wrap (not get clobbered by) the
-            -- highlight scripts above -> roster boxes brighten like the buttons.
             SlerneNotes.Skin.Button(btn)
             rosterPool[i] = btn
         end
@@ -310,16 +320,15 @@ function SlerneNotes.UpdateRaidList(roster)
     end
 end
 
--- PAGE TABS (post-it dividers above the player list; flip pages of the canvas)
 local pageTabPool = {}
-local PAGE_TAB_W, PAGE_TAB_H, PAGE_TAB_STEP = 40, 28, 35
+local PAGE_TAB_W, PAGE_TAB_H, PAGE_TAB_STEP = 30, 37, 34
 local function getPageTab(idx)
     local t = pageTabPool[idx]
     if not t then
         t = CreateFrame("Button", nil, SlerneNotes.notesTab, "UIPanelButtonTemplate")
         t:SetSize(PAGE_TAB_W, PAGE_TAB_H)
-        t:GetFontString():SetFontObject("GameFontNormalLarge")
         SlerneNotes.Skin.PageTab(t)
+        t._snBaseLevel = math.max(1, bg:GetFrameLevel() - 1)
         pageTabPool[idx] = t
     end
     return t
@@ -337,9 +346,8 @@ function SlerneNotes.UpdatePageTabs()
         t:SetText(text)
         t:SetScript("OnClick", onClick)
         t:ClearAllPoints()
-        -- Anchor to the outer background (bg), not notesTab, so the tabs ride
-        -- the main frame's top edge rather than the inset player-list border.
-        t:SetPoint("BOTTOMLEFT", bg, "TOPLEFT", 16 + (shown - 1) * PAGE_TAB_STEP, 0)
+
+        t:SetPoint("BOTTOMLEFT", bg, "TOPLEFT", 16 + (shown - 1) * PAGE_TAB_STEP, -13)
         SlerneNotes.Skin.SetPageTabActive(t, isActive)
         t:Show()
     end
@@ -362,7 +370,6 @@ function SlerneNotes.UpdatePageTabs()
     end
 end
 
--- FOOTER CONTROLS
 local newCanvasBtn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
 newCanvasBtn:SetSize(100, 30); newCanvasBtn:SetPoint("LEFT", 12, 0); newCanvasBtn:SetText("New Canvas")
 newCanvasBtn:SetScript("OnClick", function() SlerneNotes.ShowNewCanvasDialog() end)
@@ -383,8 +390,6 @@ canvasDropdown:SetupMenu(function(dropdown, rootDescription)
     end
 end)
 
--- Size a text button to its label + even padding (so words never sit flush
--- against the button edge), respecting a minimum width.
 local function fitButton(b, minW)
     local fs = b:GetFontString()
     local tw = (fs and fs:GetStringWidth()) or 0
@@ -407,8 +412,6 @@ delPageBtn:SetScript("OnClick", function() SlerneNotes.ShowConfirmDeletePage() e
 SlerneNotes.Skin.Button(delPageBtn)
 fitButton(delPageBtn, 84)
 
--- Boss template for the ACTIVE canvas: same picker as the New Canvas dialog, but
--- lets you change the boss after creation. Drives the draw-bar boss-icon flyout.
 local footerBossDropdown = CreateFrame("DropdownButton", "SlerneNotesFooterBossDropdown", footer, "WowStyle1DropdownTemplate")
 footerBossDropdown:SetWidth(122)
 footerBossDropdown:SetPoint("LEFT", delPageBtn, "RIGHT", 10, 0)
@@ -437,8 +440,6 @@ footerBossDropdown:SetupMenu(function(dropdown, root)
     end
 end)
 
--- Keep the dropdown's shown label in sync with the active canvas's boss (the
--- nested picker doesn't auto-surface a deep selection, so drive it explicitly).
 function SlerneNotes.RefreshFooterBoss()
     local boss = Data_GetCanvasBoss and Data_GetCanvasBoss() or nil
     local label = "None"
@@ -456,7 +457,6 @@ function SlerneNotes.RefreshFooterBoss()
 end
 SlerneNotes.RefreshFooterBoss()
 
--- Exposed so Drawing.lua can dock the draw bar to the right of the boss dropdown.
 SlerneNotes.footer = footer
 SlerneNotes.delCanvasBtn = delCanvasBtn
 SlerneNotes.delPageBtn = delPageBtn
@@ -474,7 +474,6 @@ exportBtn:SetScript("OnClick", function()
 end)
 SlerneNotes.Skin.Button(exportBtn)
 
--- New Module + New Placeholder are docked just left of "Send to Group"
 local newDummyBtn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
 newDummyBtn:SetSize(84, 30); newDummyBtn:SetPoint("RIGHT", exportBtn, "LEFT", -12, 0); newDummyBtn:SetText("New Placeholder")
 newDummyBtn:SetScript("OnClick", function() SlerneNotes.ShowNewDummyDialog() end)

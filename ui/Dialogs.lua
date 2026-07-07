@@ -1,12 +1,10 @@
 local addonName, SlerneNotes = ...
 local frame = SlerneNotes.frame
 
--- NEW MODULE DIALOG
 local newModDialog = CreateFrame("Frame", "SlerneNotesNewModDialog", frame, "BackdropTemplate")
 newModDialog:SetSize(280, 200)
 newModDialog:SetPoint("CENTER")
--- Keep it on the same strata as the main frame, but elevate the frame level 
--- high enough to beat canvas boxes, but low enough to let dropdowns appear.
+
 newModDialog:SetFrameStrata("FULLSCREEN_DIALOG")
 newModDialog:SetFrameLevel(500)
 SlerneNotes.Skin.Panel(newModDialog, SlerneNotes.Theme.windowBot, SlerneNotes.Theme.borderLight)
@@ -33,7 +31,6 @@ lengthEditBox:SetPoint("TOP", typeDropdown, "BOTTOM", 0, -25)
 lengthEditBox:SetNumeric(true)
 SlerneNotes.Skin.Input(lengthEditBox)
 
--- Allow-duplicate-players toggle (shown for slot-based List / Action List).
 local dupCheckNew = CreateFrame("CheckButton", nil, newModDialog, "UICheckButtonTemplate")
 dupCheckNew:SetSize(22, 22)
 dupCheckNew:SetPoint("TOP", lengthEditBox, "BOTTOM", -66, -12)
@@ -43,8 +40,6 @@ dupNewLabel:SetText("Allow duplicate players")
 dupNewLabel:SetTextColor(1, 1, 1)
 dupCheckNew:Hide()
 
--- Image picker: a nested dropdown of the base maps in img/maps/base/
--- (Season > Raid > Fight, from data/Arenas.lua). Selecting one auto-fills the size.
 local imageDropdown = CreateFrame("DropdownButton", "SlerneNotesImageDropdown", newModDialog, "WowStyle1DropdownTemplate")
 imageDropdown:SetWidth(220)
 imageDropdown:SetPoint("TOP", lengthEditBox, "BOTTOM", 0, -25)
@@ -56,8 +51,6 @@ local imgPathLabel = imageDropdown:CreateFontString(nil, "OVERLAY", "GameFontNor
 imgPathLabel:SetPoint("BOTTOM", imageDropdown, "TOP", 0, 5)
 imgPathLabel:SetText("Image")
 
--- Manual entry: any filename in img/maps/custom/ (your own images), with
--- custom dimensions. Takes priority over the dropdown when filled.
 local imageNameEdit = CreateFrame("EditBox", nil, newModDialog, "InputBoxTemplate")
 imageNameEdit:SetSize(220, 20)
 imageNameEdit:SetPoint("TOP", imageDropdown, "BOTTOM", 0, -24)
@@ -91,7 +84,6 @@ local imgHLabel = imgHEditBox:CreateFontString(nil, "OVERLAY", "GameFontNormalSm
 imgHLabel:SetPoint("BOTTOM", imgHEditBox, "TOP", 0, 5)
 imgHLabel:SetText("Height")
 
--- Choosing a base image auto-fills its native size (the W/H stay editable).
 local function SelectImage(img)
     imageDropdown.selectedFile = img and img.file or nil
     if img then
@@ -104,14 +96,12 @@ local function SelectImage(img)
     if imageDropdown.GenerateMenu then imageDropdown:GenerateMenu() end
 end
 
--- First fight in the manifest (used as the default selection).
 local function FirstFight()
     local s = SlerneNotes.Arenas and SlerneNotes.Arenas[1]
     local r = s and s.raids and s.raids[1]
     return r and r.fights and r.fights[1]
 end
 
--- Nested menu: Season > Raid > Fight (radios). Picking a fight sets the image.
 imageDropdown:SetupMenu(function(dropdown, root)
     local list = SlerneNotes.Arenas or {}
     if #list == 0 then
@@ -172,7 +162,7 @@ SlerneNotes.Skin.Button(createModBtn)
 createModBtn:SetScript("OnClick", function()
     local text = newModEditBox:GetText()
     if text and strtrim(text) ~= "" then
-        -- Typed filename wins over the dropdown; default the extension to .tga
+
         local imgFile = strtrim(imageNameEdit:GetText() or "")
         if imgFile == "" then imgFile = imageDropdown.selectedFile or "" end
         if imgFile ~= "" and not imgFile:find("%.") then imgFile = imgFile .. ".tga" end
@@ -210,7 +200,6 @@ newModDialog:SetScript("OnShow", function()
     dupCheckNew:SetChecked(false); dupCheckNew:Hide()
 end)
 
--- CANVAS DIALOGS
 local newCanvasDialog = CreateFrame("Frame", "SlerneNotesNewCanvasDialog", frame, "BackdropTemplate")
 newCanvasDialog:SetSize(280, 200)
 newCanvasDialog:SetPoint("CENTER")
@@ -228,8 +217,6 @@ newCanvasEditBox:SetSize(180, 20); newCanvasEditBox:SetPoint("TOP", newCanvasTit
 newCanvasEditBox:SetAutoFocus(false)
 SlerneNotes.Skin.Input(newCanvasEditBox)
 
--- Boss selection: drives the draw-bar boss-icon flyout. "None" = generic
--- placeholder flyout; otherwise a fight from the Arenas manifest.
 local bossDropdown = CreateFrame("DropdownButton", "SlerneNotesNewCanvasBossDropdown", newCanvasDialog, "WowStyle1DropdownTemplate")
 bossDropdown:SetWidth(200); bossDropdown:SetPoint("TOP", newCanvasEditBox, "BOTTOM", 0, -28)
 SlerneNotes.Skin.Dropdown(bossDropdown)
@@ -293,7 +280,6 @@ newCanvasDialog:SetScript("OnShow", function()
     if bossDropdown.GenerateMenu then bossDropdown:GenerateMenu() end
 end)
 
--- CONFIRMATION DIALOG FOR DELETE CANVAS
 local confirmDeleteDialog = CreateFrame("Frame", "SlerneNotesConfirmDeleteDialog", frame, "BackdropTemplate")
 confirmDeleteDialog:SetSize(300, 120)
 confirmDeleteDialog:SetPoint("CENTER")
@@ -327,7 +313,6 @@ confirmDeleteNo:SetText("No")
 confirmDeleteNo:SetScript("OnClick", function() confirmDeleteDialog:Hide() end)
 SlerneNotes.Skin.Button(confirmDeleteNo)
 
--- CONFIRMATION DIALOG FOR CLEARING DRAWINGS (themed, sits above the window)
 local confirmClearDialog = CreateFrame("Frame", "SlerneNotesConfirmClearDialog", frame, "BackdropTemplate")
 confirmClearDialog:SetSize(280, 96)
 confirmClearDialog:SetPoint("CENTER")
@@ -360,7 +345,6 @@ confirmClearNo:SetText("No")
 confirmClearNo:SetScript("OnClick", function() confirmClearDialog:Hide() end)
 SlerneNotes.Skin.Button(confirmClearNo)
 
--- CONFIRMATION DIALOG FOR DELETE PAGE
 local confirmDelPageDialog = CreateFrame("Frame", "SlerneNotesConfirmDelPageDialog", frame, "BackdropTemplate")
 confirmDelPageDialog:SetSize(280, 96)
 confirmDelPageDialog:SetPoint("CENTER")
@@ -395,7 +379,6 @@ confirmDelPageNo:SetText("No")
 confirmDelPageNo:SetScript("OnClick", function() confirmDelPageDialog:Hide() end)
 SlerneNotes.Skin.Button(confirmDelPageNo)
 
--- NEW PLACEHOLDER PLAYER DIALOG
 local CLASS_LIST = {
     {"DEATHKNIGHT", "Death Knight"}, {"DEMONHUNTER", "Demon Hunter"}, {"DRUID", "Druid"},
     {"EVOKER", "Evoker"}, {"HUNTER", "Hunter"}, {"MAGE", "Mage"}, {"MONK", "Monk"},
@@ -460,9 +443,6 @@ newDummyDialog:SetScript("OnShow", function()
     if classDropdown.GenerateMenu then classDropdown:GenerateMenu() end
 end)
 
--- EDIT MODULE DIALOG -- adapts to the module type. Every module can rename its
--- box; List/Image List/Action List also edit the row count; Image/Image List
--- also re-pick the picture (base maps dropdown OR a custom filename + W/H).
 local editModDialog = CreateFrame("Frame", "SlerneNotesEditModDialog", frame, "BackdropTemplate")
 editModDialog:SetSize(300, 200); editModDialog:SetPoint("CENTER")
 editModDialog:SetFrameStrata("FULLSCREEN_DIALOG"); editModDialog:SetFrameLevel(500)
@@ -474,29 +454,24 @@ local emTitle = editModDialog:CreateFontString(nil, "OVERLAY", "GameFontNormalLa
 emTitle:SetPoint("TOP", 0, -15); emTitle:SetText("Edit Module")
 SlerneNotes.Skin.Title(emTitle)
 
--- Name (always shown). Labels are children of their inputs so they show/hide
--- and move WITH the input as the dialog is laid out per type.
 local nameEdit = CreateFrame("EditBox", nil, editModDialog, "InputBoxTemplate")
 nameEdit:SetSize(200, 20); nameEdit:SetPoint("TOPLEFT", 40, -52); nameEdit:SetAutoFocus(false)
 SlerneNotes.Skin.Input(nameEdit)
 local nameLabel = nameEdit:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 nameLabel:SetPoint("BOTTOMLEFT", nameEdit, "TOPLEFT", 0, 3); nameLabel:SetText("Box name")
 
--- Rows (List / Image List / Action List)
 local rowsEdit = CreateFrame("EditBox", nil, editModDialog, "InputBoxTemplate")
 rowsEdit:SetSize(50, 20); rowsEdit:SetPoint("TOPLEFT", 40, -100); rowsEdit:SetNumeric(true); rowsEdit:SetAutoFocus(false)
 SlerneNotes.Skin.Input(rowsEdit)
 local rowsLabel = rowsEdit:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 rowsLabel:SetPoint("BOTTOMLEFT", rowsEdit, "TOPLEFT", 0, 3); rowsLabel:SetText("Rows")
 
--- Allow-duplicate-players toggle (slot-based modules only)
 local dupCheck = CreateFrame("CheckButton", nil, editModDialog, "UICheckButtonTemplate")
 dupCheck:SetSize(22, 22); dupCheck:SetPoint("TOPLEFT", 40, -128)
 local dupCheckLabel = dupCheck:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 dupCheckLabel:SetPoint("LEFT", dupCheck, "RIGHT", 4, 0); dupCheckLabel:SetText("Allow duplicate players")
 dupCheckLabel:SetTextColor(1, 1, 1)
 
--- Image controls (Image / Image List)
 local eiDropdown = CreateFrame("DropdownButton", "SlerneNotesEditImgDropdown", editModDialog, "WowStyle1DropdownTemplate")
 eiDropdown:SetWidth(220); eiDropdown:SetPoint("TOPLEFT", 38, -150)
 SlerneNotes.Skin.Dropdown(eiDropdown)
@@ -523,16 +498,9 @@ eiHEdit:SetNumeric(true); eiHEdit:SetAutoFocus(false); SlerneNotes.Skin.Input(ei
 local eiHLabel = eiHEdit:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 eiHLabel:SetPoint("BOTTOM", eiHEdit, "TOP", 0, 5); eiHLabel:SetText("Height")
 
--- Optional controls default to HIDDEN; ShowEditModuleDialog reveals only the
--- ones relevant to the module type. (They sit at fixed creation anchors below the
--- dialog, so if left shown they'd leak as ghost boxes under a short dialog.)
--- Belt-and-suspenders: alpha 0 as well as Hide, so a templated input can never
--- flash a stray border while "hidden".
 local editModOptional = { rowsEdit, dupCheck, eiDropdown, eiNameEdit, eiWEdit, eiHEdit }
 local function showCtl(c) c:SetAlpha(1); c:Show() end
--- Hide reliably: Hide + alpha 0 + PARK the control far off-screen. (Hide alone
--- proved unreliable for these templated inputs at FULLSCREEN_DIALOG strata, so
--- the off-screen park guarantees it can never render as a ghost box.)
+
 local function hideCtl(c)
     c:Hide()
     c:SetAlpha(0)
@@ -544,7 +512,7 @@ for _, c in ipairs(editModOptional) do hideCtl(c) end
 local function eiSelectImage(img)
     eiDropdown.selectedFile = img and img.file or nil
     if img then
-        eiNameEdit:SetText("")            -- a base pick clears the custom field
+        eiNameEdit:SetText("")
         eiWEdit:SetNumber(img.w or 400)
         eiHEdit:SetNumber(img.h or 300)
         eiPathLabel:SetText("Image: " .. (img.label or img.file))
@@ -577,7 +545,6 @@ emSaveBtn:SetScript("OnClick", function()
     local old = editModDialog.modName
     if not old then editModDialog:Hide(); return end
 
-    -- Rename first; subsequent setters target the (possibly) new name.
     local eff = old
     local newName = strtrim(nameEdit:GetText() or "")
     if newName ~= "" and newName ~= old then
@@ -591,7 +558,7 @@ emSaveBtn:SetScript("OnClick", function()
         Data_SetModuleAllowDup(eff, dupCheck:GetChecked())
     end
     if editModDialog.hasImage then
-        -- Typed filename wins over the dropdown; default the extension to .tga.
+
         local imgFile = strtrim(eiNameEdit:GetText() or "")
         if imgFile == "" then imgFile = eiDropdown.selectedFile or "" end
         if imgFile ~= "" and not imgFile:find("%.") then imgFile = imgFile .. ".tga" end
@@ -616,14 +583,11 @@ function SlerneNotes.ShowEditModuleDialog(modName, meta)
     editModDialog.hasRows = hasRows
     editModDialog.hasImage = hasImage
 
-    -- Hide every optional control up front, then reveal only what this type uses
-    -- (prevents any control leaking as a ghost box below a short dialog).
     for _, c in ipairs(editModOptional) do hideCtl(c) end
 
     local pad = 40
     local cursor = -52
 
-    -- Name (always)
     nameEdit:SetText(modName or "")
     nameEdit:ClearAllPoints(); nameEdit:SetPoint("TOPLEFT", pad, cursor); nameEdit:Show()
     cursor = cursor - 44
@@ -632,7 +596,7 @@ function SlerneNotes.ShowEditModuleDialog(modName, meta)
         rowsEdit:SetNumber(meta.length or 0)
         rowsEdit:ClearAllPoints(); rowsEdit:SetPoint("TOPLEFT", pad, cursor); showCtl(rowsEdit)
         cursor = cursor - 36
-        -- Allow-duplicate toggle (same slot-based types that have rows)
+
         dupCheck:SetChecked(meta.allowDup and true or false)
         dupCheck:ClearAllPoints(); dupCheck:SetPoint("TOPLEFT", pad - 2, cursor); showCtl(dupCheck)
         cursor = cursor - 32
@@ -660,7 +624,7 @@ function SlerneNotes.ShowEditModuleDialog(modName, meta)
         eiHEdit:SetNumber(meta and meta.imgH or 300)
         if eiDropdown.GenerateMenu then eiDropdown:GenerateMenu() end
 
-        cursor = cursor - 8  -- a little extra headroom for the "Image" label
+        cursor = cursor - 8
         eiDropdown:ClearAllPoints(); eiDropdown:SetPoint("TOPLEFT", pad - 2, cursor); showCtl(eiDropdown)
         cursor = cursor - 44
         eiNameEdit:ClearAllPoints(); eiNameEdit:SetPoint("TOPLEFT", pad, cursor); showCtl(eiNameEdit)
@@ -674,10 +638,6 @@ function SlerneNotes.ShowEditModuleDialog(modName, meta)
     editModDialog:Show()
 end
 
--- Full-screen modal dimmer shown BEHIND whichever dialog is open, so the canvas
--- (modules, slots, the footer) never peeks around the dialog's edges, and clicks
--- can't fall through to the canvas. It sits above the main window (which is a
--- lower strata) but below the dialog itself.
 local dialogDimmer = CreateFrame("Frame", nil, UIParent)
 dialogDimmer:SetAllPoints(UIParent)
 dialogDimmer:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -687,9 +647,6 @@ dimTex:SetAllPoints()
 dimTex:SetColorTexture(0, 0, 0, 0.85)
 dialogDimmer:Hide()
 
--- Raise each dialog above the module subtree on show AND force an OPAQUE
--- background -- the panel default is slightly translucent (alpha ~0.96), which
--- let bright things behind (e.g. a module's close X) bleed through the dialog.
 local function PrepDialog(dlg)
     if dlg.SetBackdropColor then dlg:SetBackdropColor(0.06, 0.04, 0.08, 1) end
     dlg:HookScript("OnShow", function(self)
@@ -703,7 +660,6 @@ for _, d in ipairs({ newModDialog, newCanvasDialog, confirmDeleteDialog, confirm
     PrepDialog(d)
 end
 
--- Expose functions to UI_Main.lua
 function SlerneNotes.ShowNewDummyDialog() newDummyDialog:Show() end
 function SlerneNotes.ShowNewModDialog() newModDialog:Show() end
 function SlerneNotes.ShowNewCanvasDialog() newCanvasDialog:Show() end

@@ -1,8 +1,8 @@
-## Interface: 120005
+## Interface: 120007
 ## Title: Slerne Notes
 ## Notes: Organize raid members into custom categories with drag-and-drop
 ## Author: Slerne
-## Version: 1.0.0
+## Version: 0.9.1
 ## X-License: MIT
 ## X-Credits: Custom art by tadogram (instagram.com/tadogram)
 ## IconTexture: Interface\AddOns\SlerneNotes\img\theme\LogoMinimap

@@ -1,9 +1,5 @@
 local addonName, SlerneNotes = ...
 
--- =====================================================================
--- MINIMAP BUTTON (LibDBIcon) -- click to toggle the window.
--- Hide toggle lives in the Config tab.
--- =====================================================================
 local LDB = LibStub and LibStub:GetLibrary("LibDataBroker-1.1", true)
 local LDBIcon = LibStub and LibStub:GetLibrary("LibDBIcon-1.0", true)
 if not (LDB and LDBIcon) then return end
@@ -20,7 +16,7 @@ local dataObj = LDB:NewDataObject("SlerneNotes", {
     icon = "Interface\\AddOns\\SlerneNotes\\img\\theme\\LogoMinimap.tga",
     OnClick = function(_, button)
         if button == "RightButton" then
-            -- Right-click jumps to the Config tab
+
             if SlerneNotes.frame then
                 SlerneNotes.frame:Show()
                 if SlerneNotes.tabs and SlerneNotes.tabs[5] then
@@ -43,7 +39,7 @@ f:RegisterEvent("ADDON_LOADED")
 f:SetScript("OnEvent", function(self, _, arg1)
     if arg1 == "SlerneNotes" then
         SlerneNotesDB = SlerneNotesDB or {}
-        -- Hidden by default (opt-in via Config).
+
         if SlerneNotesDB.minimap == nil then SlerneNotesDB.minimap = { hide = true } end
         if not LDBIcon:IsRegistered("SlerneNotes") then
             LDBIcon:Register("SlerneNotes", dataObj, SlerneNotesDB.minimap)
@@ -52,7 +48,6 @@ f:SetScript("OnEvent", function(self, _, arg1)
     end
 end)
 
--- Used by the Config tab.
 function SlerneNotes.SetMinimapHidden(hide)
     SlerneNotesDB.minimap = SlerneNotesDB.minimap or {}
     SlerneNotesDB.minimap.hide = hide and true or false

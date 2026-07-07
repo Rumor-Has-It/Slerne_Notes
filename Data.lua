@@ -20,20 +20,19 @@ function Data_Initialize()
     if not SlerneNotesDB.canvases[SlerneNotesDB.activeCanvas] then
         SlerneNotesDB.canvases[SlerneNotesDB.activeCanvas] = {}
     end
-    
+
     if SlerneNotesDB.attendanceLog then
         SlerneNotesDB.rosterLog = SlerneNotesDB.attendanceLog
         SlerneNotesDB.attendanceLog = nil
     end
     if not SlerneNotesDB.rosterLog then SlerneNotesDB.rosterLog = {} end
     if not SlerneNotesDB.playerRoles then SlerneNotesDB.playerRoles = {} end
-    -- Placeholder ("dummy") players: list of { name, class } in insertion order.
+
     if not SlerneNotesDB.dummyPlayers then SlerneNotesDB.dummyPlayers = {} end
-    -- Per-canvas, per-page drawings: drawings[canvasName].pages[n] = {strokes,...}
+
     if not SlerneNotesDB.drawings then SlerneNotesDB.drawings = {} end
     if not SlerneNotesDB.activePage then SlerneNotesDB.activePage = 1 end
 
-    -- REGISTRIES PLUGIN INIT
     if SlerneNotesDB.reminderCanvases then
         SlerneNotesDB.registryCanvases = SlerneNotesDB.reminderCanvases
         SlerneNotesDB.reminderCanvases = nil
@@ -48,14 +47,26 @@ function Data_Initialize()
     if not SlerneNotesDB.registryCanvases[SlerneNotesDB.activeRegistryCanvas] then
         SlerneNotesDB.registryCanvases[SlerneNotesDB.activeRegistryCanvas] = {}
     end
+    for _, layout in pairs(SlerneNotesDB.registryCanvases) do
+        for _, mod in pairs(layout) do
+            if mod.type == "Stopwatch" then mod.type = "Manual" end
+        end
+    end
+
+    if not SlerneNotesDB.hiddenPlugins then SlerneNotesDB.hiddenPlugins = {} end
 end
 
--- =======================
--- NOTES CANVAS DATA (multi-page: each canvas holds up to 8 page layouts)
--- =======================
+function Data_GetHiddenPlugins()
+    if not SlerneNotesDB.hiddenPlugins then SlerneNotesDB.hiddenPlugins = {} end
+    return SlerneNotesDB.hiddenPlugins
+end
+
+function Data_SetPluginHidden(key, hidden)
+    Data_GetHiddenPlugins()[key] = hidden and true or nil
+end
+
 local MAX_PAGES = 8
 
--- Wrap a legacy flat canvas / drawings table into a { pages = { [1]=old } } shape.
 local function ensurePages(c)
     if not c.pages then
         local old = {}
@@ -77,6 +88,8 @@ local function ensureDrawingPages(d)
     return d.pages
 end
 
+local sanitizedLayouts = setmetatable({}, { __mode = "k" })
+
 function Data_GetCurrentLayout()
     local c = SlerneNotesDB.canvases[SlerneNotesDB.activeCanvas]
     if not c then return nil end
@@ -85,6 +98,7 @@ function Data_GetCurrentLayout()
     if not pages[p] then p = 1; SlerneNotesDB.activePage = 1 end
     if not pages[p] then pages[p] = {} end
     local layout = pages[p]
+    if sanitizedLayouts[layout] then return layout end
     do
         local cascadeX = 20
         local cascadeY = -20
@@ -107,14 +121,14 @@ function Data_GetCurrentLayout()
             if not v.meta.text then
                 v.meta.text = ""
             end
-            
+
             if not v.meta.posX then
                 v.meta.posX = cascadeX
                 v.meta.posY = cascadeY
                 cascadeX = cascadeX + 40
                 cascadeY = cascadeY - 40
             end
-            
+
             if v.players then
                 local sanitizedPlayers = {}
                 for pKey, pVal in pairs(v.players) do
@@ -132,6 +146,7 @@ function Data_GetCurrentLayout()
             end
         end
     end
+    sanitizedLayouts[layout] = true
     return layout
 end
 
@@ -147,9 +162,6 @@ function Data_SetCanvas(canvasName)
     SlerneNotesDB.activePage = 1
 end
 
--- Boss selection (canvas-level): a fight `file` from SlerneNotes.Arenas, or nil
--- for "None". Drives the draw-bar boss-icon flyout. Stored beside `pages` so it
--- survives page edits; ensurePages first so it never lands inside a page table.
 function Data_SetCanvasBoss(name, bossFile)
     if not SlerneNotesDB.canvases then return end
     name = name or SlerneNotesDB.activeCanvas
@@ -181,9 +193,6 @@ function Data_DeleteCanvas(canvasName)
     SlerneNotesDB.activePage = 1
 end
 
--- =======================
--- PAGES (within the active canvas)
--- =======================
 function Data_GetActivePage() return SlerneNotesDB.activePage or 1 end
 
 function Data_GetPageCount(name)
@@ -205,7 +214,7 @@ function Data_AddPage()
     local pages = ensurePages(c)
     if #pages >= MAX_PAGES then return #pages end
     pages[#pages + 1] = {}
-    -- keep the drawings pages parallel to the layout pages
+
     local d = SlerneNotesDB.drawings[SlerneNotesDB.activeCanvas]
     if not d then d = {}; SlerneNotesDB.drawings[SlerneNotesDB.activeCanvas] = d end
     local dpages = ensureDrawingPages(d)
@@ -218,7 +227,7 @@ function Data_DeletePage(n)
     local c = SlerneNotesDB.canvases[SlerneNotesDB.activeCanvas]
     if not c then return end
     local pages = ensurePages(c)
-    if #pages <= 1 then return end -- never delete the last page
+    if #pages <= 1 then return end
     n = n or SlerneNotesDB.activePage or 1
     if n < 1 or n > #pages then return end
     table.remove(pages, n)
@@ -263,8 +272,6 @@ function Data_SetImagePath(module, path)
     if layout and layout[module] then layout[module].meta.image = path end
 end
 
--- Swap an Image module's picture + size in one call (used by the "change image"
--- control on Image modules).
 function Data_SetModuleImage(module, path, w, h)
     local layout = Data_GetCurrentLayout()
     if layout and layout[module] then
@@ -285,8 +292,6 @@ function Data_RemoveModule(name)
     if layout and layout[name] then layout[name] = nil end
 end
 
--- Rename a module (the module name is its layout key). No-op if the new name is
--- blank, unchanged, or already taken (so we never clobber another module).
 function Data_RenameModule(oldName, newName)
     if not oldName or not newName then return end
     newName = strtrim(newName)
@@ -297,7 +302,6 @@ function Data_RenameModule(oldName, newName)
     layout[oldName] = nil
 end
 
--- Row count for List / Image List / Action List modules.
 function Data_SetModuleLength(name, length)
     local layout = Data_GetCurrentLayout()
     if layout and layout[name] then
@@ -305,7 +309,6 @@ function Data_SetModuleLength(name, length)
     end
 end
 
--- Whether the same player may occupy more than one slot in this module.
 function Data_SetModuleAllowDup(name, allow)
     local layout = Data_GetCurrentLayout()
     if layout and layout[name] then
@@ -319,9 +322,7 @@ function Data_Assign(player, module, slotIndex)
         local modData = layout[module]
         local t = modData.meta.type
         if t == "Action List" or t == "List" or t == "Image List" then
-            -- Slot-based modules. Unless this module opts into duplicates
-            -- (meta.allowDup), the same player can only occupy one slot, so
-            -- clear them from any other slot before assigning the target.
+
             if not modData.meta.allowDup then
                 for k, v in pairs(modData.players) do
                     if v == player then modData.players[k] = nil end
@@ -334,8 +335,6 @@ function Data_Assign(player, module, slotIndex)
     end
 end
 
--- Clear a single slot by its key (used by Action List, which may have the
--- same player in several slots, so removing "by player" is not enough).
 function Data_RemoveSlot(module, slotKey)
     local layout = Data_GetCurrentLayout()
     if layout and layout[module] and slotKey ~= nil then
@@ -362,15 +361,12 @@ function Data_SetLabel(module, slotIndex, text)
     if layout and layout[module] then layout[module].meta.labels[slotIndex] = text end
 end
 
--- =======================
--- ROSTER DATA
--- =======================
 function Data_AddRosterLog(name, classToken, customText)
     if not SlerneNotesDB.rosterLog then SlerneNotesDB.rosterLog = {} end
-    
+
     if name and not customText then
         for _, entry in ipairs(SlerneNotesDB.rosterLog) do
-            if entry.name == name then return end 
+            if entry.name == name then return end
         end
     end
 
@@ -382,9 +378,6 @@ function Data_AddRosterLog(name, classToken, customText)
         checked = true
     })
 
-    -- Auto "Reset List" once it reaches 100 so the log never grows forever.
-    -- Data_ClearRosterLog wipes it, re-adds the player, and refreshes the UI,
-    -- so we return early (the nested add can't re-trigger this -- it's back to 1).
     if #SlerneNotesDB.rosterLog >= 100 then
         Data_ClearRosterLog()
         return
@@ -409,14 +402,14 @@ end
 
 function Data_ClearRosterLog()
     SlerneNotesDB.rosterLog = {}
-    
+
     local pName = UnitName("player")
     if pName then
         local shortName = strsplit("-", pName)
         local _, classToken = UnitClass("player")
         Data_AddRosterLog(shortName, classToken)
     end
-    
+
     if SlerneNotes.UpdateRosterList then SlerneNotes.UpdateRosterList() end
 end
 
@@ -430,9 +423,6 @@ function Data_GetRole(player)
     return SlerneNotesDB.playerRoles[player]
 end
 
--- =======================
--- PLACEHOLDER (DUMMY) PLAYERS
--- =======================
 function Data_GetDummies()
     if not SlerneNotesDB.dummyPlayers then SlerneNotesDB.dummyPlayers = {} end
     return SlerneNotesDB.dummyPlayers
@@ -443,7 +433,7 @@ function Data_AddDummy(name, classToken)
     name = strtrim(name)
     local list = Data_GetDummies()
     for _, d in ipairs(list) do
-        if d.name == name then return end -- already exists
+        if d.name == name then return end
     end
     table.insert(list, { name = name, class = classToken })
 end
@@ -458,9 +448,6 @@ function Data_RemoveDummy(name)
     end
 end
 
--- =======================
--- DRAWINGS (per canvas)
--- =======================
 function Data_GetDrawings()
     if not SlerneNotesDB.drawings then SlerneNotesDB.drawings = {} end
     local cname = SlerneNotesDB.activeCanvas or "Canvas 1"
@@ -472,9 +459,9 @@ function Data_GetDrawings()
     local dd = pages[p]
     if not dd.strokes then dd.strokes = {} end
     if not dd.markers then dd.markers = {} end
-    if not dd.texts then dd.texts = {} end   -- free text labels
-    if not dd.shapes then dd.shapes = {} end  -- transparent circles
-    if not dd.lines then dd.lines = {} end    -- placeable line objects
+    if not dd.texts then dd.texts = {} end
+    if not dd.shapes then dd.shapes = {} end
+    if not dd.lines then dd.lines = {} end
     return dd
 end
 
@@ -487,15 +474,11 @@ function Data_RemoveLastStroke()
     if #d.strokes > 0 then table.remove(d.strokes) end
 end
 
--- "Clear" only wipes pencil strokes now -- markers/text/circles/lines are each
--- removed individually with right-click, so they survive Clear.
 function Data_ClearDrawings()
     local d = Data_GetDrawings()
     wipe(d.strokes)
 end
 
--- Placeable icons. kind = "marker" (raid target 1-8), "role" (tank/healer/
--- melee/ranged), or "class" (class token). icon holds the id for that kind.
 function Data_AddMarker(kind, icon, x, y, size)
     local d = Data_GetDrawings()
     table.insert(d.markers, { kind = kind or "marker", icon = icon, x = x, y = y, size = size or 26 })
@@ -520,7 +503,6 @@ function Data_RemoveMarker(index)
     if d.markers[index] then table.remove(d.markers, index) end
 end
 
--- Free text labels: { text, x, y, size, color = {r,g,b} }
 function Data_AddText(x, y, color, size)
     local d = Data_GetDrawings()
     table.insert(d.texts, { text = "", x = x, y = y, size = size or 22, color = { color[1], color[2], color[3] } })
@@ -547,7 +529,6 @@ function Data_RemoveText(index)
     if d.texts[index] then table.remove(d.texts, index) end
 end
 
--- Transparent circle shapes: { x, y, size, color = {r,g,b} } (x,y = center)
 function Data_AddShape(x, y, size, color)
     local d = Data_GetDrawings()
     table.insert(d.shapes, { x = x, y = y, size = size or 80, color = { color[1], color[2], color[3] } })
@@ -569,9 +550,6 @@ function Data_RemoveShape(index)
     if d.shapes[index] then table.remove(d.shapes, index) end
 end
 
--- Placeable line objects: { x1, y1, x2, y2, thickness, color = {r,g,b} }.
--- Like circles/text: created with the Line tool, scroll-resized (thickness),
--- right-click removed -- NOT part of the undo/clear stroke system.
 function Data_AddLine(x1, y1, x2, y2, color, thickness, arrow)
     local d = Data_GetDrawings()
     table.insert(d.lines, { x1 = x1, y1 = y1, x2 = x2, y2 = y2,
@@ -589,9 +567,6 @@ function Data_RemoveLine(index)
     if d.lines[index] then table.remove(d.lines, index) end
 end
 
--- =======================
--- REGISTRIES PLUGIN DATA
--- =======================
 function Data_GetRegistryLayout()
     return SlerneNotesDB.registryCanvases[SlerneNotesDB.activeRegistryCanvas]
 end
@@ -623,7 +598,7 @@ end
 function Data_AddRegistryModule(name, regType)
     local layout = Data_GetRegistryLayout()
     if layout then
-        -- Default coordinates updated to spawn at bottom right
+
         layout[name] = { text = "", posX = 1400, posY = -650, type = regType or "Manual" }
     end
 end
@@ -646,8 +621,9 @@ function Data_SetRegistryModulePos(name, x, y)
     end
 end
 
--- GLOBAL EXPORTS
 _G.Data_Initialize = Data_Initialize
+_G.Data_GetHiddenPlugins = Data_GetHiddenPlugins
+_G.Data_SetPluginHidden = Data_SetPluginHidden
 _G.Data_AddModule = Data_AddModule
 _G.Data_RemoveModule = Data_RemoveModule
 _G.Data_RenameModule = Data_RenameModule

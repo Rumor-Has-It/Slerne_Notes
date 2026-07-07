@@ -1,19 +1,14 @@
 local addonName, SlerneNotes = ...
 
--- =====================================================================
--- DRAWING TOOLS for the Notes canvas: freeform + straight lines, color
--- swatches, and the 8 raid-target markers. Saved per canvas via Data_*.
--- =====================================================================
-
 local COLORS = {
     {1.00, 1.00, 1.00}, {1.00, 0.20, 0.20}, {1.00, 0.55, 0.10}, {1.00, 0.90, 0.20},
     {0.30, 1.00, 0.35}, {0.30, 0.60, 1.00}, {0.75, 0.40, 1.00}, {0.05, 0.05, 0.05},
 }
-local SAMPLE_DIST2  = 4 * 4   -- min pixel distance (squared) between freeform points
+local SAMPLE_DIST2  = 4 * 4
 local LINE_THICKNESS = 3
 local MARKER_SIZE   = 26
-local TEXT_FONT_SIZE = 22     -- free-text size (roughly marker-sized)
-local CIRCLE_DEFAULT = 80     -- default transparent circle diameter
+local TEXT_FONT_SIZE = 22
+local CIRCLE_DEFAULT = 80
 local CIRCLE_MASK   = "Interface\\Masks\\CircleMaskScalable"
 local FONT_FILE     = select(1, GameFontNormal:GetFont())
 
@@ -23,8 +18,6 @@ local CLASS_TOKENS = { "WARRIOR", "PALADIN", "DEATHKNIGHT", "HUNTER", "SHAMAN",
                        "WARLOCK", "PRIEST", "EVOKER" }
 local ROLE_ICON_PATH = "Interface\\AddOns\\SlerneNotes\\img\\icons\\"
 
--- Set a placeable-icon texture by kind ("marker" raid target | role | class | flag).
--- Roles + flag are bundled high-res 256px TGAs (img/icons), crisp when scaled up.
 local function applyIconTexture(tex, kind, icon)
     if kind == "role" then
         tex:SetTexture(ROLE_ICON_PATH .. tostring(icon) .. ".tga")
@@ -38,14 +31,13 @@ local function applyIconTexture(tex, kind, icon)
         tex:SetTexCoord(0, 1, 0, 1)
     elseif kind == "fight" then
         if not icon or icon == "?" then
-            tex:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")  -- palette placeholder
+            tex:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
         else
             tex:SetTexture("Interface\\AddOns\\SlerneNotes\\img\\fights\\" .. tostring(icon) .. ".tga")
         end
         tex:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     elseif kind == "bossicon" then
-        -- Boss / add icon: `icon` is a path relative to img/maps/base (it lives in
-        -- the same folder as the boss's map). Populated from the canvas's boss.
+
         tex:SetTexture("Interface\\AddOns\\SlerneNotes\\img\\maps\\base\\" .. tostring(icon))
         tex:SetTexCoord(0, 1, 0, 1)
     else
@@ -56,31 +48,24 @@ end
 
 local canvas = SlerneNotes.rightPanel
 
--- runtime state
-local mode = "off"            -- "off" (select) | "pencil" | "line" | "text" | "circle"
+local mode = "off"
 local currentColor = { 1, 1, 1 }
 local drawing = false
 local currentStroke = nil
-local setMode               -- forward declaration (used by the canvas handlers)
+local setMode
 
--- pools
-local linePool = {}       -- pencil stroke segments
+local linePool = {}
 local previewPool = {}
 local markerPool = {}
 local textPool = {}
 local shapePool = {}
-local lineObjPool = {}    -- placeable line objects (Line tool)
+local lineObjPool = {}
 
--- ---------------------------------------------------------------------
--- Draw layer (overlays the canvas, above the modules)
--- ---------------------------------------------------------------------
 local drawLayer = CreateFrame("Frame", nil, canvas)
 drawLayer:SetAllPoints(canvas)
 drawLayer:SetFrameLevel(canvas:GetFrameLevel() + 50)
 drawLayer:EnableMouse(false)
 
--- cursor position as an offset from the draw layer's TOPLEFT (x>=0, y<=0),
--- clamped to the canvas so drawings stay inside.
 local function cursorLocal()
     local scale = drawLayer:GetEffectiveScale()
     local cx, cy = GetCursorPosition()
@@ -93,9 +78,6 @@ local function cursorLocal()
     return x, y
 end
 
--- ---------------------------------------------------------------------
--- Line / preview helpers
--- ---------------------------------------------------------------------
 local function previewSeg(i, x1, y1, x2, y2, c)
     local l = previewPool[i]
     if not l then
@@ -113,9 +95,6 @@ local function clearPreview()
     for _, l in ipairs(previewPool) do l:Hide() end
 end
 
--- ---------------------------------------------------------------------
--- Markers
--- ---------------------------------------------------------------------
 local function createMarker(idx)
     local m = CreateFrame("Button", nil, drawLayer)
     m:SetSize(MARKER_SIZE, MARKER_SIZE)
@@ -125,11 +104,10 @@ local function createMarker(idx)
     m:RegisterForClicks("RightButtonUp")
     m.tex = m:CreateTexture(nil, "OVERLAY")
     m.tex:SetAllPoints()
-    -- Smoother upscaling when icons are sized up (avoid pixel-grid snapping).
+
     if m.tex.SetSnapToPixelGrid then m.tex:SetSnapToPixelGrid(false) end
     if m.tex.SetTexelSnappingBias then m.tex:SetTexelSnappingBias(0) end
 
-    -- Scroll over an icon (select mode) to resize it
     m:SetScript("OnMouseWheel", function(self, delta)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
@@ -161,9 +139,6 @@ local function createMarker(idx)
     return m
 end
 
--- ---------------------------------------------------------------------
--- Free text items (editable label placed on the canvas)
--- ---------------------------------------------------------------------
 local function createTextItem(idx)
     local eb = CreateFrame("EditBox", nil, drawLayer)
     eb:SetAutoFocus(false)
@@ -175,7 +150,6 @@ local function createTextItem(idx)
     eb:EnableMouseWheel(true)
     eb:RegisterForDrag("LeftButton")
 
-    -- Scroll over a label (in select mode) to resize its font
     eb:SetScript("OnMouseWheel", function(self, delta)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
@@ -199,7 +173,7 @@ local function createTextItem(idx)
     eb:SetScript("OnTextChanged", function(self) Data_SetTextValue(self.index, self:GetText()) end)
     eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
     eb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
-    -- Discard a label that was placed but left blank
+
     eb:SetScript("OnEditFocusLost", function(self)
         if self:GetText() == "" then
             Data_RemoveText(self.index)
@@ -216,9 +190,6 @@ local function createTextItem(idx)
     return eb
 end
 
--- ---------------------------------------------------------------------
--- Transparent circle shapes ("drop pools here" markers)
--- ---------------------------------------------------------------------
 local function createShape(idx)
     local f = CreateFrame("Frame", nil, drawLayer)
     f:SetMovable(true)
@@ -248,7 +219,7 @@ local function createShape(idx)
             SlerneNotes.UpdateDrawings()
         end
     end)
-    -- Scroll over a circle (in select mode) to resize it
+
     f:SetScript("OnMouseWheel", function(self, delta)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
@@ -262,12 +233,11 @@ local function createShape(idx)
     return f
 end
 
--- Arrowhead barb endpoints for a line tip at (x2,y2) coming from (x1,y1).
 local function arrowBarbs(x1, y1, x2, y2, size)
     local dx, dy = x2 - x1, y2 - y1
     local len = math.sqrt(dx * dx + dy * dy)
     if len < 1 then return x2, y2, x2, y2 end
-    local rx, ry = -dx / len, -dy / len           -- unit vector back along the line
+    local rx, ry = -dx / len, -dy / len
     local ang = math.rad(28)
     local ca, sa = math.cos(ang), math.sin(ang)
     local b1x = x2 + size * (rx * ca - ry * sa)
@@ -277,20 +247,16 @@ local function arrowBarbs(x1, y1, x2, y2, size)
     return b1x, b1y, b2x, b2y
 end
 
--- ---------------------------------------------------------------------
--- Placeable line objects (Line / Arrow-Line tools): like circles -- drag to
--- move, scroll to change thickness, right-click to remove. A frame covers the
--- line's bounding box (so it can catch the mouse); the CreateLines are anchored
--- to that frame so they follow during a drag. `arrow` adds a head at the tip.
--- ---------------------------------------------------------------------
 local function createLineObj(idx)
     local f = CreateFrame("Frame", nil, drawLayer)
     f:SetMovable(true)
     f:RegisterForDrag("LeftButton")
     f:EnableMouseWheel(true)
     f.seg = f:CreateLine(nil, "ARTWORK")
-    f.head1 = f:CreateLine(nil, "ARTWORK")
-    f.head2 = f:CreateLine(nil, "ARTWORK")
+    f.head = f:CreateTexture(nil, "ARTWORK")
+    f.head:SetTexture("Interface\\Buttons\\WHITE8x8")
+    f.head:SetSize(1, 1)
+    f.head:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
 
     f:SetScript("OnDragStart", function(self) if mode == "off" then self:StartMoving() end end)
     f:SetScript("OnDragStop", function(self)
@@ -312,7 +278,7 @@ local function createLineObj(idx)
             SlerneNotes.UpdateDrawings()
         end
     end)
-    -- Scroll over a line (select mode) to change its thickness.
+
     f:SetScript("OnMouseWheel", function(self, delta)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
@@ -326,19 +292,12 @@ local function createLineObj(idx)
     return f
 end
 
--- ---------------------------------------------------------------------
--- Render everything from saved data
--- ---------------------------------------------------------------------
 function SlerneNotes.UpdateDrawings()
     if not Data_GetDrawings then return end
     local d = Data_GetDrawings()
 
-    -- UpdateModules' Clear() hides every child of rightPanel (incl. this layer),
-    -- so re-show it here (this runs at the end of UpdateModules).
     drawLayer:Show()
 
-    -- Keep the boss-icon palette in sync with the active canvas's boss (cheap:
-    -- no-ops unless the boss actually changed since the last refresh).
     if SlerneNotes.RefreshFightPalette then SlerneNotes.RefreshFightPalette() end
 
     for _, l in ipairs(linePool) do l:Hide() end
@@ -347,7 +306,6 @@ function SlerneNotes.UpdateDrawings()
     for _, s in ipairs(shapePool) do s:Hide() end
     for _, l in ipairs(lineObjPool) do l:Hide() end
 
-    -- strokes -> chained line segments
     local used = 0
     for _, stroke in ipairs(d.strokes) do
         local pts = stroke.points
@@ -367,7 +325,6 @@ function SlerneNotes.UpdateDrawings()
         end
     end
 
-    -- markers / role icons / class icons
     for idx, mk in ipairs(d.markers) do
         local m = markerPool[idx] or createMarker(idx)
         m.index = idx
@@ -380,7 +337,6 @@ function SlerneNotes.UpdateDrawings()
         m:Show()
     end
 
-    -- transparent circles (drawn under text/markers)
     for idx, sh in ipairs(d.shapes or {}) do
         local f = shapePool[idx] or createShape(idx)
         f.index = idx
@@ -394,16 +350,16 @@ function SlerneNotes.UpdateDrawings()
         f:Show()
     end
 
-    -- placeable line objects
     for idx, ln in ipairs(d.lines or {}) do
         local f = lineObjPool[idx] or createLineObj(idx)
         f.index = idx
         local x1, y1, x2, y2 = ln.x1 or 0, ln.y1 or 0, ln.x2 or 0, ln.y2 or 0
         local c = ln.color or { 1, 1, 1 }
         local th = ln.thickness or LINE_THICKNESS
-        local pad = math.max(8, th)           -- grab margin around the line
+        local hw = math.max(7, th * 1.6)
+        local pad = ln.arrow and math.max(8, th, hw) or math.max(8, th)
         local minX, maxX = math.min(x1, x2), math.max(x1, x2)
-        local topY, botY = math.max(y1, y2), math.min(y1, y2)  -- y is negative-down
+        local topY, botY = math.max(y1, y2), math.min(y1, y2)
         local fl, ft = minX - pad, topY + pad
         f._fl, f._ft = fl, ft
         f:ClearAllPoints()
@@ -413,28 +369,33 @@ function SlerneNotes.UpdateDrawings()
         f.seg:SetColorTexture(c[1], c[2], c[3], 1)
         f.seg:ClearAllPoints()
         f.seg:SetStartPoint("TOPLEFT", f, x1 - fl, y1 - ft)
-        f.seg:SetEndPoint("TOPLEFT", f, x2 - fl, y2 - ft)
         if ln.arrow then
-            local hsize = 10 + th * 1.4
-            local b1x, b1y, b2x, b2y = arrowBarbs(x1, y1, x2, y2, hsize)
-            f.head1:SetThickness(th); f.head1:SetColorTexture(c[1], c[2], c[3], 1)
-            f.head1:ClearAllPoints()
-            f.head1:SetStartPoint("TOPLEFT", f, x2 - fl, y2 - ft)
-            f.head1:SetEndPoint("TOPLEFT", f, b1x - fl, b1y - ft)
-            f.head2:SetThickness(th); f.head2:SetColorTexture(c[1], c[2], c[3], 1)
-            f.head2:ClearAllPoints()
-            f.head2:SetStartPoint("TOPLEFT", f, x2 - fl, y2 - ft)
-            f.head2:SetEndPoint("TOPLEFT", f, b2x - fl, b2y - ft)
-            f.head1:Show(); f.head2:Show()
+            local dx, dy = x2 - x1, y2 - y1
+            local len = math.sqrt(dx * dx + dy * dy)
+            if len < 1 then len = 1 end
+            local ux, uy = dx / len, dy / len
+            local hl = math.min(len * 0.5, math.max(14, th * 3.2))
+            local bx, by = x2 - ux * hl, y2 - uy * hl
+            local px, py = -uy, ux
+            f.seg:SetEndPoint("TOPLEFT", f, bx - fl + ux, by - ft + uy)
+            local tipx, tipy = x2 - fl, y2 - ft
+            local c1x, c1y = bx + px * hw - fl, by + py * hw - ft
+            local c2x, c2y = bx - px * hw - fl, by - py * hw - ft
+            f.head:SetVertexColor(c[1], c[2], c[3], 1)
+            f.head:SetVertexOffset(1, c1x, c1y)
+            f.head:SetVertexOffset(2, c2x, c2y + 1)
+            f.head:SetVertexOffset(3, tipx - 1, tipy)
+            f.head:SetVertexOffset(4, tipx - 1, tipy + 1)
+            f.head:Show()
         else
-            f.head1:Hide(); f.head2:Hide()
+            f.seg:SetEndPoint("TOPLEFT", f, x2 - fl, y2 - ft)
+            f.head:Hide()
         end
         f:EnableMouse(mode == "off")
         f:EnableMouseWheel(mode == "off")
         f:Show()
     end
 
-    -- free text labels
     for idx, t in ipairs(d.texts or {}) do
         local eb = textPool[idx] or createTextItem(idx)
         eb.index = idx
@@ -451,9 +412,6 @@ function SlerneNotes.UpdateDrawings()
     end
 end
 
--- ---------------------------------------------------------------------
--- Drawing input
--- ---------------------------------------------------------------------
 local function onDrawUpdate()
     if not drawing or not currentStroke then return end
     local px, py = cursorLocal()
@@ -470,22 +428,20 @@ local function onDrawUpdate()
     end
 end
 
--- The window's drag is disabled while a draw mode is active (see setMode), so
--- plain OnMouseDown/OnUpdate/OnMouseUp can capture the press-drag-release.
 drawLayer:SetScript("OnMouseDown", function(self, button)
     if button ~= "LeftButton" or mode == "off" then return end
     local px, py = cursorLocal()
 
     if mode == "text" then
         local idx = Data_AddText(px, py, currentColor)
-        setMode("off") -- so the new label is immediately editable / draggable
+        setMode("off")
         SlerneNotes.UpdateDrawings()
         local eb = textPool[idx]
         if eb then eb:SetFocus() end
         return
     elseif mode == "circle" then
         Data_AddShape(px, py, CIRCLE_DEFAULT, currentColor)
-        setMode("off") -- so the new circle is immediately draggable / resizable
+        setMode("off")
         SlerneNotes.UpdateDrawings()
         return
     end
@@ -500,8 +456,7 @@ drawLayer:SetScript("OnMouseUp", function(self, button)
     self:SetScript("OnUpdate", nil)
     local px, py = cursorLocal()
     if mode == "line" or mode == "arrow" then
-        -- Line / Arrow-Line are placeable OBJECTS (not pencil strokes): create,
-        -- then drop to select mode so they're immediately draggable / resizable.
+
         local p1 = currentStroke and currentStroke.points[1]
         local isArrow = (mode == "arrow")
         currentStroke = nil
@@ -513,26 +468,20 @@ drawLayer:SetScript("OnMouseUp", function(self, button)
         SlerneNotes.UpdateDrawings()
         return
     end
-    -- pencil stroke
+
     if #currentStroke.points >= 2 then Data_AddStroke(currentStroke) end
     currentStroke = nil
     clearPreview()
     SlerneNotes.UpdateDrawings()
 end)
 
--- ---------------------------------------------------------------------
--- Toolbar -- docked (locked) into the footer, to the right of "Delete Canvas"
--- ---------------------------------------------------------------------
 local toolbar = CreateFrame("Frame", nil, SlerneNotes.footer, "BackdropTemplate")
 toolbar:SetHeight(34)
 toolbar:SetPoint("LEFT", SlerneNotes.footerBossDropdown or SlerneNotes.delPageBtn, "RIGHT", 12, 0)
 toolbar:SetFrameLevel(SlerneNotes.footer:GetFrameLevel() + 5)
--- Border around the draw bar so it reads as its own section in the footer
+
 SlerneNotes.Skin.Panel(toolbar)
 
--- Active-tool highlight: a gold ring on the selected mode button. It's a
--- separate frame (not the button's own border) so the button hover effect
--- can't clear it -- the selected mode stays highlighted.
 local toolButtons = {}
 local function refreshToolHighlight()
     for m, b in pairs(toolButtons) do
@@ -551,8 +500,7 @@ setMode = function(m)
     for _, t in ipairs(textPool) do t:EnableMouse(m == "off"); t:EnableMouseWheel(m == "off") end
     for _, s in ipairs(shapePool) do s:EnableMouse(m == "off"); s:EnableMouseWheel(m == "off") end
     for _, l in ipairs(lineObjPool) do l:EnableMouse(m == "off"); l:EnableMouseWheel(m == "off") end
-    -- While drawing, stop the main window from being dragged (otherwise the
-    -- drag bubbles up to the movable window and moves it instead of drawing).
+
     if m == "off" then
         SlerneNotes.frame:RegisterForDrag("LeftButton")
     else
@@ -561,7 +509,7 @@ setMode = function(m)
     refreshToolHighlight()
 end
 
-local colorSel  -- highlight frame for selected swatch
+local colorSel
 local function setColor(c, swatch)
     currentColor = { c[1], c[2], c[3] }
     if colorSel and swatch then
@@ -571,7 +519,6 @@ local function setColor(c, swatch)
     end
 end
 
--- Attach a persistent gold "active" ring to a mode button.
 local function markActive(b, m)
     local mark = CreateFrame("Frame", nil, b, "BackdropTemplate")
     mark:SetPoint("TOPLEFT", -1, 1)
@@ -597,8 +544,6 @@ local function toolButton(label, w, m, onClick)
     return b
 end
 
--- Compact graphic button for the Line / Arrow-Line tools: a literal diagonal
--- line (plus an arrowhead for the arrow variant), tinted to the theme font colour.
 local function lineToolButton(modeName, withArrow)
     local b = CreateFrame("Button", nil, toolbar, "UIPanelButtonTemplate")
     b:SetSize(26, 24); b:SetPoint("LEFT", x, 0); b:SetText("")
@@ -606,7 +551,7 @@ local function lineToolButton(modeName, withArrow)
     SlerneNotes.Skin.Button(b)
     local seg = b:CreateLine(nil, "OVERLAY")
     seg:SetThickness(2.5)
-    seg:SetColorTexture(1, 1, 1, 1) -- a Line is invisible without a texture
+    seg:SetColorTexture(1, 1, 1, 1)
     seg:SetStartPoint("CENTER", b, -8, -5)
     seg:SetEndPoint("CENTER", b, 8, 5)
     SlerneNotes.Skin.TintTexture(seg)
@@ -623,10 +568,6 @@ local function lineToolButton(modeName, withArrow)
     return b
 end
 
--- ---------------------------------------------------------------------
--- Flyout palettes (Markers / Roles / Classes) -- defined first so the layout
--- below can place them last.
--- ---------------------------------------------------------------------
 local openFlyouts = {}
 local function hideFlyouts(except)
     for _, f in ipairs(openFlyouts) do if f ~= except then f:Hide() end end
@@ -636,7 +577,7 @@ local function placeIcon(kind, icon)
     local cw = drawLayer:GetWidth() or 400
     local ch = drawLayer:GetHeight() or 300
     Data_AddMarker(kind, icon, cw / 2, -ch / 2, MARKER_SIZE)
-    setMode("off") -- new icon is immediately draggable / resizable
+    setMode("off")
     SlerneNotes.UpdateDrawings()
 end
 
@@ -648,7 +589,7 @@ local function makePalette(repKind, repIcon, items, kind, cols)
     btn:RegisterForClicks("LeftButtonUp")
     SlerneNotes.Skin.IconBox(btn)
     btn.tex = btn:CreateTexture(nil, "OVERLAY")
-    btn.tex:SetSize(18, 18)        -- square, centered: don't stretch the icon
+    btn.tex:SetSize(18, 18)
     btn.tex:SetPoint("CENTER")
     applyIconTexture(btn.tex, repKind, repIcon)
     x = x + 26 + 3
@@ -667,8 +608,7 @@ local function makePalette(repKind, repIcon, items, kind, cols)
     openFlyouts[#openFlyouts + 1] = fly
 
     for i, item in ipairs(items) do
-        -- An item is either a plain icon (uses the palette's kind) or a
-        -- { kind=, icon= } pair so a different kind can share the same menu.
+
         local ikind, iicon = kind, item
         if type(item) == "table" then ikind, iicon = item.kind, item.icon end
         local ib = CreateFrame("Button", nil, fly)
@@ -690,19 +630,12 @@ local function makePalette(repKind, repIcon, items, kind, cols)
     return btn
 end
 
--- =====================================================================
--- DRAW BAR LAYOUT (left -> right):
---   Select | Pencil | Undo | Clear || colors | Line | T | circle | markers
--- Undo/Clear sit by Pencil (they only affect pencil strokes). Line / T /
--- circle / markers are placeable objects -- right-click removes them.
--- =====================================================================
 toolButton("Select", 42, "off", function() setMode("off") end)
 toolButton("Pencil", 42, "pencil", function() setMode("pencil") end)
 toolButton("Undo", 40, nil, function() Data_RemoveLastStroke(); SlerneNotes.UpdateDrawings() end)
--- Clear (pencil strokes only) asks for confirmation so a mis-click can't wipe work.
+
 toolButton("Clear", 40, nil, function() SlerneNotes.ShowConfirmClearDrawings() end)
 
--- color swatches
 x = x + 5
 for _, c in ipairs(COLORS) do
     local sw = CreateFrame("Button", nil, toolbar, "BackdropTemplate")
@@ -717,7 +650,6 @@ for _, c in ipairs(COLORS) do
     x = x + 16
 end
 
--- selection ring for the chosen swatch
 colorSel = CreateFrame("Frame", nil, toolbar, "BackdropTemplate")
 colorSel:SetSize(21, 21)
 colorSel:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 10 })
@@ -725,23 +657,20 @@ colorSel:SetBackdropBorderColor(1, 0.82, 0.30, 1)
 colorSel:SetFrameLevel(toolbar:GetFrameLevel() + 5)
 colorSel:Hide()
 
--- Line + Arrow-Line (placeable objects: draw, scroll to thicken, right-click to remove)
 x = x + 5
 lineToolButton("line", false)
 lineToolButton("arrow", true)
 
--- Text tool (compact "T" button)
 local textBtn = CreateFrame("Button", nil, toolbar, "UIPanelButtonTemplate")
 textBtn:SetSize(26, 24); textBtn:SetPoint("LEFT", x, 0); textBtn:SetText("")
 textBtn:SetScript("OnClick", function() setMode("text") end)
 SlerneNotes.Skin.Button(textBtn)
 local tGlyph = textBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-tGlyph:SetPoint("CENTER"); tGlyph:SetText("T"); tGlyph:SetTextColor(1, 1, 1, 1) -- white base
-SlerneNotes.Skin.TintTexture(tGlyph) -- vertex-tinted to the theme font colour (live)
+tGlyph:SetPoint("CENTER"); tGlyph:SetText("T"); tGlyph:SetTextColor(1, 1, 1, 1)
+SlerneNotes.Skin.TintTexture(tGlyph)
 markActive(textBtn, "text")
 x = x + 28 + 4
 
--- Circle tool (compact disc button)
 local circBtn = CreateFrame("Button", nil, toolbar, "UIPanelButtonTemplate")
 circBtn:SetSize(26, 24); circBtn:SetPoint("LEFT", x, 0); circBtn:SetText("")
 circBtn:SetScript("OnClick", function() setMode("circle") end)
@@ -749,7 +678,7 @@ SlerneNotes.Skin.Button(circBtn)
 local cIco = circBtn:CreateTexture(nil, "OVERLAY")
 cIco:SetSize(14, 14); cIco:SetPoint("CENTER")
 cIco:SetColorTexture(1, 1, 1, 0.95)
-SlerneNotes.Skin.TintTexture(cIco) -- follow the theme font colour (live)
+SlerneNotes.Skin.TintTexture(cIco)
 local cMask = circBtn:CreateMaskTexture()
 cMask:SetAllPoints(cIco)
 cMask:SetTexture(CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -757,13 +686,8 @@ cIco:AddMaskTexture(cMask)
 markActive(circBtn, "circle")
 x = x + 28 + 4
 
--- Fight / Markers / Roles / Classes palettes
 x = x + 5
 
--- Boss-icon palette: REBUILT per active canvas from its selected boss (see
--- SlerneNotes.RefreshFightPalette). With a boss, the preview is the XBoss icon
--- and the flyout holds that boss's icons; with no boss it's the "?" placeholder
--- (optionally legacy img/fights icons from SlerneNotes.FightIcons).
 local fightBtn, fightFly
 local fightItemPool = {}
 do
@@ -793,7 +717,7 @@ do
     end)
 end
 
-local lastFightBoss = "\0"  -- sentinel so the first refresh always builds
+local lastFightBoss = "\0"
 function SlerneNotes.RefreshFightPalette(force)
     if not fightBtn then return end
     local boss = (Data_GetCanvasBoss and Data_GetCanvasBoss()) or nil
@@ -802,7 +726,6 @@ function SlerneNotes.RefreshFightPalette(force)
 
     local info = boss and SlerneNotes.GetBossIcons and SlerneNotes.GetBossIcons(boss) or nil
 
-    -- Build the item list: boss icons (relative paths) or legacy fight icons.
     local items = {}
     if info then
         for _, rel in ipairs(info.list) do items[#items + 1] = { kind = "bossicon", icon = rel } end
@@ -841,10 +764,9 @@ function SlerneNotes.RefreshFightPalette(force)
 end
 
 makePalette("marker", 8, { 1, 2, 3, 4, 5, 6, 7, 8 }, "marker", 4)
--- Role menu also carries the flag (5th item, its own "flag" kind).
+
 makePalette("role", "tank", { "tank", "healer", "melee", "ranged", { kind = "flag", icon = "flag" } }, "role", 5)
--- Class palette + the two gateway icons (GateGreen/GatePurple in img/icons,
--- rendered as a "role" kind so they resolve under img/icons like tank/healer/flag).
+
 local classItems = {}
 for _, t in ipairs(CLASS_TOKENS) do classItems[#classItems + 1] = t end
 classItems[#classItems + 1] = { kind = "role", icon = "GateGreen" }
@@ -853,10 +775,7 @@ makePalette("class", "WARRIOR", classItems, "class", 5)
 
 toolbar:SetWidth(x + 6)
 
--- default state (setMode also initialises the draw layer's mouse + window drag)
 setColor(COLORS[1])
 setMode("off")
 
--- Build the boss palette for the initial canvas (force, since the sentinel
--- compare would otherwise treat an unset boss as "unchanged" and skip).
 SlerneNotes.RefreshFightPalette(true)

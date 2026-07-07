@@ -1,9 +1,8 @@
 local addonName, SlerneNotes = ...
-_G.SlerneNotes = SlerneNotes -- Keeps a global reference safely
+_G.SlerneNotes = SlerneNotes
 local raidRoster = {}
 local previousRoster = nil
 
--- SHARED CONSTANTS & UTILITIES
 SlerneNotes.ClassColors = {
     ["DEATHKNIGHT"] = {r=0.77, g=0.12, b=0.23},
     ["DEMONHUNTER"] = {r=0.64, g=0.19, b=0.79},
@@ -28,22 +27,39 @@ function SlerneNotes.GetClassHex(classToken)
     return "ffffff"
 end
 
--- MAIN FRAME & COMM SETUP
 SlerneNotes.frame = CreateFrame("Frame", "SlerneNotesFrame", UIParent)
 local frame = SlerneNotes.frame
 
 C_ChatInfo.RegisterAddonMessagePrefix("SlerneNotes")
 
+local VER_PREFIX = "SlerneVer"
+C_ChatInfo.RegisterAddonMessagePrefix(VER_PREFIX)
+SlerneNotes.viewerVersions = {}
+
+local verReqPending
+function SlerneNotes.RequestViewerVersions()
+    if verReqPending then verReqPending:Cancel() end
+    verReqPending = C_Timer.NewTimer(1.5, function()
+        verReqPending = nil
+        local ch, tgt
+        if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then ch = "INSTANCE_CHAT"
+        elseif IsInRaid() then ch = "RAID"
+        elseif IsInGroup() then ch = "PARTY"
+        else ch, tgt = "WHISPER", UnitName("player") end
+        C_ChatInfo.SendAddonMessage(VER_PREFIX, "REQ", ch, tgt)
+    end)
+end
+
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("CHAT_MSG_ADDON")
 
--- UPDATE ROSTER 
 function SlerneNotes:UpdateRaidRoster()
     wipe(raidRoster)
 
     local numGroup = GetNumGroupMembers()
-    
+
     if numGroup == 0 then
         local name = UnitName("player")
         if name then
@@ -61,12 +77,10 @@ function SlerneNotes:UpdateRaidRoster()
         end
     end
 
-    -- ATTENDANCE LOGGING LOGIC
     if previousRoster == nil then
         previousRoster = {}
         for k, v in pairs(raidRoster) do previousRoster[k] = v end
-        
-        -- Auto-add player to the log if it's completely empty on initial load
+
         local log = Data_GetRosterLog()
         if #log == 0 then
             local pName = UnitName("player")
@@ -86,30 +100,43 @@ function SlerneNotes:UpdateRaidRoster()
         for k, v in pairs(raidRoster) do previousRoster[k] = v end
     end
 
+    for name in pairs(SlerneNotes.viewerVersions) do
+        if not raidRoster[name] then SlerneNotes.viewerVersions[name] = nil end
+    end
+    SlerneNotes.RequestViewerVersions()
+    if SlerneNotes.RefreshViewerVersions then SlerneNotes.RefreshViewerVersions() end
+
     if frame:IsShown() then
         if SlerneNotes.UpdateRaidList then SlerneNotes.UpdateRaidList(raidRoster) end
         if SlerneNotes.UpdateModules then SlerneNotes.UpdateModules() end
     end
 end
 
--- EVENTS
-frame:SetScript("OnEvent", function(self, event, arg1)
+frame:SetScript("OnEvent", function(self, event, arg1, arg2, arg3, arg4)
     if event == "ADDON_LOADED" then
         if arg1 == "SlerneNotes" then
             Data_Initialize()
-            -- Saved theme is only available now, so (re)apply it to the already
-            -- skinned frames.
+
             if SlerneNotes.Skin and SlerneNotes.Skin.RefreshTheme then
                 SlerneNotes.Skin.RefreshTheme()
             end
+            if SlerneNotes.ApplyPluginVisibility then SlerneNotes.ApplyPluginVisibility() end
             print("Slerne Notes loaded")
         end
     elseif event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" then
         SlerneNotes:UpdateRaidRoster()
+    elseif event == "CHAT_MSG_ADDON" then
+        if arg1 == VER_PREFIX then
+            local tag, ver = strsplit("\t", arg2 or "", 2)
+            if tag == "VER" and arg4 then
+                local short = strsplit("-", arg4)
+                SlerneNotes.viewerVersions[short] = ver or "?"
+                if SlerneNotes.RefreshViewerVersions then SlerneNotes.RefreshViewerVersions() end
+            end
+        end
     end
 end)
 
--- SLASH COMMAND
 SLASH_SLERNENOTES1 = "/sn"
 SlashCmdList["SLERNENOTES"] = function()
     if frame:IsShown() then
@@ -125,11 +152,6 @@ function SlerneNotes:GetRoster()
     return raidRoster
 end
 
--- Real group members PLUS placeholder/dummy players (deduped by name; a real
--- player with the same name as a dummy takes precedence). Used for displaying
--- and color-coding the roster list and module assignments so dummies behave
--- exactly like real players, and are seamlessly taken over when the real
--- player joins.
 function SlerneNotes:GetCombinedRoster()
     local combined = {}
     for name, data in pairs(raidRoster) do combined[name] = data end
@@ -142,7 +164,6 @@ function SlerneNotes:GetCombinedRoster()
     return combined
 end
 
--- SERIALIZER FOR EXPORT
 local function Escape(str)
     if not str then return "" end
     str = tostring(str)
@@ -158,7 +179,7 @@ function SlerneNotes.GetExportString()
     local layout = Data_GetCurrentLayout()
     local roster = SlerneNotes:GetRoster()
     local parts = {}
-    
+
     for modName, modData in pairs(layout) do
         local meta = modData.meta
         local m = {
@@ -166,7 +187,7 @@ function SlerneNotes.GetExportString()
             Escape(meta.image), Escape(meta.imgW), Escape(meta.imgH),
             Escape(meta.text)
         }
-        
+
         local labels = {}
         for k, v in pairs(meta.labels or {}) do table.insert(labels, Escape(k).."="..Escape(v)) end
         table.insert(m, table.concat(labels, ","))
@@ -174,15 +195,15 @@ function SlerneNotes.GetExportString()
         local players = {}
         local classes = {}
         local roles = {}
-        
-        for k, v in pairs(modData.players or {}) do 
-            table.insert(players, Escape(k).."="..Escape(v)) 
+
+        for k, v in pairs(modData.players or {}) do
+            table.insert(players, Escape(k).."="..Escape(v))
             local pName = (v == true) and k or v
-            
+
             if roster[pName] and roster[pName].class then
                 table.insert(classes, Escape(pName).."="..Escape(roster[pName].class))
             end
-            
+
             local pRole = Data_GetRole(pName)
             if pRole then
                 table.insert(roles, Escape(pName).."="..Escape(pRole))
@@ -191,7 +212,7 @@ function SlerneNotes.GetExportString()
         table.insert(m, table.concat(players, ","))
         table.insert(m, table.concat(classes, ","))
         table.insert(m, table.concat(roles, ","))
-        
+
         table.insert(m, Escape(meta.posX))
         table.insert(m, Escape(meta.posY))
 
@@ -200,7 +221,6 @@ function SlerneNotes.GetExportString()
     return table.concat(parts, ";")
 end
 
--- Escape free text so it survives the drawings serialization separators.
 local function EscDraw(s)
     s = tostring(s or "")
     s = s:gsub("%%", "%%P"):gsub("#", "%%H"):gsub(";", "%%S"):gsub(",", "%%C")
@@ -212,12 +232,6 @@ local function ColHex(c)
     return string.format("%02x%02x%02x", math.floor(c[1] * 255), math.floor(c[2] * 255), math.floor(c[3] * 255))
 end
 
--- SERIALIZE DRAWINGS (strokes + markers + texts + circles) for the active canvas.
--- Format (4 sections joined by '#'):
---   strokes  : hex:x,y:x,y;hex:x,y...
---   markers  : icon,x,y;icon,x,y...
---   texts    : hex,x,y,escapedText;...
---   shapes   : hex,x,y,size;...   (transparent circles)
 function SlerneNotes.GetDrawingsExportString()
     if not Data_GetDrawings then return "###" end
     local d = Data_GetDrawings()
@@ -253,7 +267,6 @@ function SlerneNotes.GetDrawingsExportString()
             math.floor((s.size or 80) + 0.5)
     end
 
-    -- lines: hex,x1,y1,x2,y2,thickness,arrow;...   (placeable line / arrow objects)
     local lineParts = {}
     for _, ln in ipairs(d.lines or {}) do
         lineParts[#lineParts + 1] = ColHex(ln.color) .. "," ..
@@ -267,16 +280,10 @@ function SlerneNotes.GetDrawingsExportString()
         .. table.concat(lineParts, ";")
 end
 
--- Throttle-safe outgoing queue. WoW silently DROPS addon messages sent faster
--- than the client's rate limit -- a real risk for big multi-page canvases that
--- split into many chunks. We queue every chunk and drain a few per tick, backing
--- off (keeping the chunk queued) whenever the client reports a throttle, so no
--- chunk is ever lost regardless of how many pages the canvas has.
 local sendQueue = {}
 local sendTicker = nil
 local THROTTLE = Enum and Enum.SendAddonMessageResult and Enum.SendAddonMessageResult.AddonMessageThrottle
--- With throttle detection we can safely burst (we back off the moment the client
--- says stop); without it, fall back to a slow, conservative 1-per-tick (~10/sec).
+
 local BATCH = THROTTLE and 4 or 1
 
 local function drainSendQueue()
@@ -286,9 +293,9 @@ local function drainSendQueue()
         local item = sendQueue[1]
         local res = C_ChatInfo.SendAddonMessage("SlerneNotes", item.msg, item.chatType, item.target)
         if THROTTLE and res == THROTTLE then
-            break  -- rate-limited: stop this tick, retry the same chunk next tick
+            break
         else
-            table.remove(sendQueue, 1)  -- sent (or an unrecoverable error) -> advance
+            table.remove(sendQueue, 1)
         end
     end
     if not sendQueue[1] then
@@ -302,22 +309,18 @@ function SlerneNotes._QueueBroadcast(list, chatType, target)
         sendQueue[#sendQueue + 1] = { msg = msg, chatType = chatType, target = target }
     end
     if not sendTicker then
-        drainSendQueue()                 -- fire off as many as allowed right now
-        if sendQueue[1] then             -- more remain -> drain on a ticker
+        drainSendQueue()
+        if sendQueue[1] then
             sendTicker = C_Timer.NewTicker(0.1, drainSendQueue)
         end
     end
 end
 
--- BROADCAST TO GROUP -- sends the whole active canvas (all its pages).
--- Format:  canvasName | pageCount | L1 | D1 | L2 | D2 | ... | LN | DN
 function SlerneNotes.BroadcastCanvas()
     local canvasName = Data_GetActiveCanvas() or "Canvas 1"
     local savedPage = Data_GetActivePage()
     local pageCount = math.max(1, Data_GetPageCount())
 
-    -- Walk each page (silently flipping the active page, then restoring it) so
-    -- GetExportString / GetDrawingsExportString serialize that page's data.
     local parts = { canvasName, tostring(pageCount) }
     for p = 1, pageCount do
         Data_SetActivePage(p)
@@ -327,10 +330,6 @@ function SlerneNotes.BroadcastCanvas()
     Data_SetActivePage(savedPage)
     local fullStr = table.concat(parts, "|")
 
-    -- Pick a channel. CRITICAL: inside an instance (dungeon/M+/LFR/instanced
-    -- raid) the PARTY/RAID addon channels are dead -- messages there are dropped
-    -- for everyone, INCLUDING the sender -- so an instance group MUST use
-    -- INSTANCE_CHAT. When solo we whisper to ourselves for single-client testing.
     local chatType, target
     if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
         chatType = "INSTANCE_CHAT"
@@ -347,7 +346,6 @@ function SlerneNotes.BroadcastCanvas()
     local totalChunks = math.ceil(#fullStr / maxLen)
     local msgID = math.random(1000, 9999)
 
-    -- Build all chunks, then hand them to the throttle-safe queue (see above).
     local list = {}
     for i = 1, totalChunks do
         local chunk = string.sub(fullStr, (i-1)*maxLen + 1, i*maxLen)

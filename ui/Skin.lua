@@ -1,74 +1,54 @@
 local addonName, SlerneNotes = ...
 
--- =====================================================================
--- CENTRAL THEME / SKIN HELPER
--- One place to control the whole look. Tweak Theme to recolor the addon.
--- Built entirely from solid colors + Blizzard built-in borders (no art assets).
--- =====================================================================
-
 local Theme = {
-    -- Main window gradient (dark purple -> dark brown)
+
     windowTop    = {0.14, 0.07, 0.10, 0.96},
     windowBot    = {0.07, 0.05, 0.08, 0.96},
 
-    -- Surfaces
     panelBG      = {0.07, 0.05, 0.10, 0.90},
     moduleBG     = {0.06, 0.04, 0.09, 0.92},
     slotBG       = {0.11, 0.07, 0.13, 0.95},
 
-    -- Borders
     border       = {0.42, 0.34, 0.58, 0.90},
     borderLight  = {0.60, 0.50, 0.78, 1.00},
 
-    -- Text (warm orange-gold)
-    title        = {0.97, 0.66, 0.22, 1.00}, -- orange-gold module/section titles
+    title        = {0.97, 0.66, 0.22, 1.00},
     text         = {0.88, 0.85, 0.92, 1.00},
 
-    -- Buttons (deeper brick-red gradient + orange-gold text)
     btnTop       = {0.34, 0.08, 0.07, 1.00},
     btnBot       = {0.16, 0.04, 0.04, 1.00},
     btnHover     = {0.48, 0.12, 0.11, 1.00},
     btnText      = {0.98, 0.72, 0.28, 1.00},
 
-    -- Tabs (idle = neutral dark; active = same as the frame background)
     tabTop       = {0.22, 0.15, 0.22, 1.00},
     tabBot       = {0.12, 0.08, 0.13, 1.00},
-    tabHover     = {0.46, 0.35, 0.60, 1.00}, -- lighter purple on mouseover
+    tabHover     = {0.46, 0.35, 0.60, 1.00},
 }
 SlerneNotes.Theme = Theme
 
 local Skin = {}
 SlerneNotes.Skin = Skin
 
--- ---------------------------------------------------------------------
--- Selectable theme tints (chosen in the Config tab). The built-in colours
--- are the "Default"; other choices override the Font colour (titles, button
--- text, the X's) and/or the Button background gradient. Applied live via the
--- refresher registry below (see Skin.RefreshTheme).
--- ---------------------------------------------------------------------
 SlerneNotes.ThemeColorChoices = {
     { key = "Default",  label = "Default" },
-    { key = "Cyan",     label = "Cyan",      rgb = { 0.012, 0.561, 0.561 } }, -- #038f8f
-    { key = "DarkBlue", label = "Dark Blue", rgb = { 0.035, 0.012, 0.176 } }, -- #09032d
-    { key = "Green",    label = "Green",     rgb = { 0.016, 0.471, 0.008 } }, -- #047802
-    { key = "DeepTeal", label = "Deep Teal", rgb = { 0.000, 0.133, 0.133 } }, -- #002222
-    { key = "Purple",   label = "Purple",    rgb = { 0.478, 0.212, 0.690 } }, -- #7a36b0 violet button
-    { key = "Brown",    label = "Brown",     rgb = { 0.420, 0.271, 0.145 } }, -- #6b4525 leather button
-    { key = "Olive",    label = "Olive",     rgb = { 0.435, 0.416, 0.110 } }, -- #6f6a1c olive/gold button
-    { key = "Lime",     label = "Lime",      rgb = { 0.667, 0.796, 0.227 } }, -- #aacb3a yellow-green font
+    { key = "Cyan",     label = "Cyan",      rgb = { 0.012, 0.561, 0.561 } },
+    { key = "DarkBlue", label = "Dark Blue", rgb = { 0.035, 0.012, 0.176 } },
+    { key = "Green",    label = "Green",     rgb = { 0.016, 0.471, 0.008 } },
+    { key = "DeepTeal", label = "Deep Teal", rgb = { 0.000, 0.133, 0.133 } },
+    { key = "Purple",   label = "Purple",    rgb = { 0.478, 0.212, 0.690 } },
+    { key = "Brown",    label = "Brown",     rgb = { 0.420, 0.271, 0.145 } },
+    { key = "Olive",    label = "Olive",     rgb = { 0.435, 0.416, 0.110 } },
+    { key = "Lime",     label = "Lime",      rgb = { 0.667, 0.796, 0.227 } },
 }
 local ThemeColorByKey = {}
 for _, c in ipairs(SlerneNotes.ThemeColorChoices) do ThemeColorByKey[c.key] = c end
 
--- Snapshot the built-in colours so "Default" can restore them on a live switch.
 local DEFAULTS = {
     title = { unpack(Theme.title) }, btnText = { unpack(Theme.btnText) },
     btnTop = { unpack(Theme.btnTop) }, btnBot = { unpack(Theme.btnBot) },
     btnHover = { unpack(Theme.btnHover) },
 }
 
--- Mutate the Theme table from the saved choice (reset to defaults first so a
--- live switch back to "Default" works).
 local function ApplyThemeConfig()
     Theme.title    = { unpack(DEFAULTS.title) }
     Theme.btnText  = { unpack(DEFAULTS.btnText) }
@@ -93,9 +73,6 @@ local function ApplyThemeConfig()
 end
 SlerneNotes.ApplyThemeConfig = ApplyThemeConfig
 
--- SavedVariables aren't available until ADDON_LOADED, and frames are skinned at
--- file load -- so we register a "refresher" per coloured element and re-run them
--- after the theme is (re)applied. This makes theme switches LIVE (no /reload).
 Skin._refreshers = {}
 local function addRefresher(fn) Skin._refreshers[#Skin._refreshers + 1] = fn end
 
@@ -104,11 +81,8 @@ function Skin.RefreshTheme()
     for _, fn in ipairs(Skin._refreshers) do pcall(fn) end
 end
 
--- Exposed so non-Skin files can register their own theme-coloured bits.
 Skin.AddRefresher = addRefresher
 
--- Tint a Blizzard texture (lock icon, checkmark, ...) to the font colour and
--- keep it in sync on theme change.
 function Skin.TintTexture(tex)
     if not tex then return tex end
     local function apply()
@@ -121,9 +95,6 @@ function Skin.TintTexture(tex)
     return tex
 end
 
--- ---------------------------------------------------------------------
--- helpers
--- ---------------------------------------------------------------------
 local function unpackC(t) return t[1], t[2], t[3], t[4] or 1 end
 local function color(t) return CreateColor(t[1], t[2], t[3], t[4] or 1) end
 
@@ -143,45 +114,35 @@ local BORDER_ONLY = {
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     edgeSize = 12,
 }
--- Thicker edge for the outer "main frame" -- chunky like the selected tabs.
+
 local OUTER_BACKDROP = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
     edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
     edgeSize = 20,
     insets = { left = 5, right = 5, top = 5, bottom = 5 },
 }
--- Fill only (no built-in edge) -- the art ArtEdges draw the border on top.
--- Inset to the inner edge of the strips' SOLID core + AA falloff (measured: top/
--- bottom solid rows 3-8 fade to 11; left/right solid cols 4-10 fade to 13) so the
--- fill meets the border line with no see-through gap and no bleed past it.
+
 local OUTER_FILL = {
     bgFile = "Interface\\Buttons\\WHITE8x8",
     insets = { left = 11, right = 11, top = 9, bottom = 9 },
 }
 
--- Custom art assets (uncompressed TGA in img/theme)
 local UI_PATH     = "Interface\\AddOns\\SlerneNotes\\img\\theme\\"
-local TAB_BORDER  = UI_PATH .. "Tab-ext.tga"  -- 3-sided extruded tab border (open right)
-local DIAMOND     = UI_PATH .. "Diamond.tga"  -- corner ornament (legacy)
+local TAB_BORDER  = UI_PATH .. "Tab-ext.tga"
+local DIAMOND     = UI_PATH .. "Diamond.tga"
 
--- New exterior-border art: per-edge strips (stretch along their length) + a
--- corner gem that covers where two edges cross.
-local BORDER_UP   = UI_PATH .. "border-upper.tga"   -- 86x13 top strip
-local BORDER_LO   = UI_PATH .. "border-lower.tga"   -- 86x13 bottom strip
-local BORDER_LE   = UI_PATH .. "border-left.tga"    -- 15x52 left strip
-local BORDER_RI   = UI_PATH .. "border-right.tga"   -- 15x52 right strip
-local BORDER_DIA  = UI_PATH .. "border-diamond.tga" -- 13x13 corner gem
-local PAGE_ART    = UI_PATH .. "Page.tga"           -- canvas page tab (open-bottom)
-local LOCK_ART    = UI_PATH .. "lock.tga"           -- module lock gem
+local BORDER_UP   = UI_PATH .. "border-upper.tga"
+local BORDER_LO   = UI_PATH .. "border-lower.tga"
+local BORDER_LE   = UI_PATH .. "border-left.tga"
+local BORDER_RI   = UI_PATH .. "border-right.tga"
+local BORDER_DIA  = UI_PATH .. "border-diamond.tga"
+local PAGE_ACTIVE   = UI_PATH .. "PageActive.tga"
+local PAGE_INACTIVE = UI_PATH .. "PageInactive.tga"
+local LOCK_ART    = UI_PATH .. "lock.tga"
 SlerneNotes.LockArt = LOCK_ART
-local EDGE_T      = 13   -- top/bottom strip thickness
-local EDGE_S      = 15   -- left/right strip thickness
+local EDGE_T      = 13
+local EDGE_S      = 15
 
--- Build a custom art border from the edge strips + corner gems. `sides` selects
--- which edges to draw (omit a side to leave it "open", e.g. a folder tab that
--- joins the frame). Diamonds are placed only where two requested edges meet, so
--- they cover the crossing point. Returns { edges = {...}, diamonds = {...} } so
--- callers can dim them (idle tabs).
 function Skin.ArtEdges(frame, sides)
     sides = sides or { top = true, bottom = true, left = true, right = true }
     local r = { edges = {}, diamonds = {} }
@@ -219,9 +180,7 @@ function Skin.ArtEdges(frame, sides)
         d:SetPoint("CENTER", frame, corner, o[1], o[2])
         r.diamonds[#r.diamonds + 1] = d
     end
-    -- `sides.gems` forces an explicit corner list (e.g. a folder tab wants a gem
-    -- at the frame junction even though that side has no edge); else auto-place
-    -- where two requested edges cross.
+
     if sides.gems then
         for _, c in ipairs(sides.gems) do dia(c) end
     else
@@ -233,7 +192,6 @@ function Skin.ArtEdges(frame, sides)
     return r
 end
 
--- Dim/brighten a set of art-border regions (idle vs active tab).
 function Skin.SetArtEdgesShade(r, v)
     if not r then return end
     for _, t in pairs(r.edges) do t:SetVertexColor(v, v, v) end
@@ -241,7 +199,7 @@ function Skin.SetArtEdgesShade(r, v)
 end
 
 local function setGradient(tex, botC, topC)
-    -- Guard against API differences; SetGradient is current on 12.0.x
+
     if tex.SetGradient then
         tex:SetGradient("VERTICAL", color(botC), color(topC))
     else
@@ -249,9 +207,6 @@ local function setGradient(tex, botC, topC)
     end
 end
 
--- ---------------------------------------------------------------------
--- Surfaces
--- ---------------------------------------------------------------------
 function Skin.Panel(frame, bgColor, borderColor)
     if not frame or not frame.SetBackdrop then return frame end
     frame:SetBackdrop(PANEL_BACKDROP)
@@ -272,7 +227,6 @@ function Skin.Slot(frame)
     return frame
 end
 
--- Main window: dark panel + vertical gradient fill
 function Skin.Window(frame)
     if not frame then return frame end
     if frame.SetBackdrop then
@@ -284,31 +238,26 @@ function Skin.Window(frame)
         local g = frame:CreateTexture(nil, "BACKGROUND")
         g:SetPoint("TOPLEFT", 4, -4)
         g:SetPoint("BOTTOMRIGHT", -4, 4)
-        -- Solid so the content panel matches the frame and the active tab.
+
         g:SetColorTexture(unpackC(Theme.windowBot))
         frame._snGrad = g
     end
     return frame
 end
 
--- Outer "main frame": thicker double-line border + dark gradient fill.
--- Approximation of an ornate frame using tintable built-in edges (clean
--- purple). The diamond-corner ornaments in the mockup would need custom art.
 function Skin.OuterFrame(frame)
     if not frame then return frame end
-    -- Dark fill (no built-in edge) + custom art border (4 edge strips + gems).
+
     if frame.SetBackdrop then
         frame:SetBackdrop(OUTER_FILL)
         frame:SetBackdropColor(unpackC(Theme.windowBot))
     end
     if not frame._snGrad then
         local g = frame:CreateTexture(nil, "BACKGROUND")
-        -- Inset under the border strips (match OUTER_FILL) so it meets the border
-        -- line with no gap and no bleed.
+
         g:SetPoint("TOPLEFT", 11, -9)
         g:SetPoint("BOTTOMRIGHT", -11, 9)
-        -- Solid (not gradient) so the active tabs match the frame exactly at
-        -- any vertical position.
+
         g:SetColorTexture(unpackC(Theme.windowBot))
         frame._snGrad = g
     end
@@ -318,9 +267,6 @@ function Skin.OuterFrame(frame)
     return frame
 end
 
--- ---------------------------------------------------------------------
--- Text
--- ---------------------------------------------------------------------
 function Skin.Title(fs)
     if fs then
         fs:SetTextColor(unpackC(Theme.title))
@@ -329,9 +275,6 @@ function Skin.Title(fs)
     return fs
 end
 
--- ---------------------------------------------------------------------
--- Buttons
--- ---------------------------------------------------------------------
 local function clearTex(t)
     if t then
         t:SetTexture(nil)
@@ -340,7 +283,6 @@ local function clearTex(t)
     end
 end
 
--- isTab => uses the neutral tab palette and leaves text color to Skin.Tab
 function Skin.Button(b, isTab)
     if not b or b._snSkinned then return b end
     b._snSkinned = true
@@ -367,8 +309,6 @@ function Skin.Button(b, isTab)
     b._snTop = topC
     b._snBot = botC
 
-    -- Wrap the border just OUTSIDE the coloured fill so the fill sits inside it
-    -- instead of poking past it (the rope draws inward, so nudge it outward).
     local brd = CreateFrame("Frame", nil, b, "BackdropTemplate")
     brd:SetPoint("TOPLEFT", b, "TOPLEFT", -2, 2)
     brd:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 2, -2)
@@ -400,14 +340,6 @@ function Skin.Button(b, isTab)
     return b
 end
 
--- ---------------------------------------------------------------------
--- Folder tabs (file-folder look: active tab joins the content panel)
---   * manual 4-side borders so the right edge can "open" into the panel
---   * active  -> raised above the panel, right border hidden, fill reaches
---                the right edge and overlaps the panel = seamless join
---   * idle    -> sits below the panel so its overlap tucks behind it
--- The tab button is expected to overlap the content panel's left edge.
--- ---------------------------------------------------------------------
 function Skin.FolderTab(b)
     if not b or b._snTabbed then return b end
     b._snTabbed = true
@@ -426,13 +358,9 @@ function Skin.FolderTab(b)
     fill:SetColorTexture(1, 1, 1, 1)
     b._snFill = fill
 
-    -- Custom art border: top + bottom + left edges, OPEN on the right so the
-    -- tab joins the frame. Gems on all 4 corners -- the two RIGHT ones sit where
-    -- the tab meets the main frame (covering that junction).
     b._snArtBorder = Skin.ArtEdges(b, { top = true, bottom = true, left = true,
         gems = { "TOPLEFT", "BOTTOMLEFT", "TOPRIGHT", "BOTTOMRIGHT" } })
 
-    -- Shadow cast by the main frame onto idle tabs (depth at the connection).
     local shadow = b:CreateTexture(nil, "ARTWORK")
     shadow:SetPoint("TOPRIGHT", 0, 0)
     shadow:SetPoint("BOTTOMRIGHT", 0, 0)
@@ -443,7 +371,6 @@ function Skin.FolderTab(b)
     end
     b._snShadow = shadow
 
-    -- Keep idle tabs below the content panel; raise the active one above it.
     local parent = b:GetParent()
     b._snBaseLevel = parent and parent:GetFrameLevel() or b:GetFrameLevel()
 
@@ -467,9 +394,6 @@ function Skin.SetFolderTabActive(b, active)
     if not b or not b._snFill then return end
     b._snActive = active
 
-    -- The fill is the OPAQUE background-colored interior. It tucks just under the
-    -- art edges (left 11 / top+bottom 9, matching the strip thickness) and when
-    -- active overlaps RIGHT into the panel for a seamless join.
     b._snFill:ClearAllPoints()
     if active then
         b._snFill:SetPoint("TOPLEFT", 11, -9)
@@ -480,8 +404,7 @@ function Skin.SetFolderTabActive(b, active)
     end
 
     if active then
-        -- Active tab = solid (opaque) main-frame background. Force alpha 1 so the
-        -- bright UI behind the left strip can't bleed through the tab.
+
         local wb = Theme.windowBot
         setGradient(b._snFill, { wb[1], wb[2], wb[3], 1 }, { wb[1], wb[2], wb[3], 1 })
         Skin.SetArtEdgesShade(b._snArtBorder, 1)
@@ -499,11 +422,6 @@ function Skin.SetFolderTabActive(b, active)
     end
 end
 
--- ---------------------------------------------------------------------
--- Page tabs: like FolderTab, but for the TOP of the window. They stick UP and
--- open DOWNWARD into the frame (the filer art rotated 90deg), like post-it
--- dividers on a book.
--- ---------------------------------------------------------------------
 function Skin.PageTab(b)
     if not b or b._snPageTab then return b end
     b._snPageTab = true
@@ -516,36 +434,32 @@ function Skin.PageTab(b)
         if b[k] and b[k].SetAlpha then b[k]:SetAlpha(0) end
     end
 
-    local fill = b:CreateTexture(nil, "BACKGROUND")
-    fill:SetColorTexture(1, 1, 1, 1)
-    b._snFill = fill
-
-    -- Purpose-built page-tab art: rounded top with notched shoulders, OPEN at
-    -- the bottom so the tab connects down into the frame.
     local art = b:CreateTexture(nil, "BORDER")
-    art:SetTexture(PAGE_ART)
+    art:SetTexture(PAGE_INACTIVE)
     art:SetAllPoints()
     b._snArt = art
 
-    -- Nudge the page number DOWN into the tab body (the art's body sits a touch
-    -- low, and the bottom is open) and keep it horizontally centered.
-    local fs = b.GetFontString and b:GetFontString()
-    if fs then fs:ClearAllPoints(); fs:SetPoint("CENTER", b, "CENTER", 0, -4) end
+    local bridge = b:CreateTexture(nil, "ARTWORK")
+    bridge:SetPoint("TOPLEFT", b, "BOTTOMLEFT", 5, 4)
+    bridge:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -5, -3)
+    bridge:Hide()
+    b._snBridge = bridge
 
-    -- Sit above the window background so the tab fill joins the frame (and the
-    -- bg's top border doesn't draw over the tab's bottom = "floating").
+    local fs = b.GetFontString and b:GetFontString()
+    if fs then
+        fs:SetFontObject("GameFontNormal")
+        fs:ClearAllPoints()
+        fs:SetPoint("CENTER", b, "CENTER", -1, 4)
+    end
+
     local parent = b:GetParent()
     b._snBaseLevel = (parent and parent:GetFrameLevel() or b:GetFrameLevel()) + 10
 
     b:HookScript("OnEnter", function(self)
-        if not self._snActive and self._snFill then
-            setGradient(self._snFill, Theme.tabBot, Theme.tabHover)
-        end
+        if not self._snActive and self._snArt then self._snArt:SetVertexColor(0.85, 0.85, 0.85) end
     end)
     b:HookScript("OnLeave", function(self)
-        if not self._snActive and self._snFill then
-            setGradient(self._snFill, Theme.tabBot, Theme.tabTop)
-        end
+        if not self._snActive and self._snArt then self._snArt:SetVertexColor(0.55, 0.55, 0.55) end
     end)
 
     addRefresher(function() Skin.SetPageTabActive(b, b._snActive) end)
@@ -554,48 +468,33 @@ function Skin.PageTab(b)
 end
 
 function Skin.SetPageTabActive(b, active)
-    if not b or not b._snFill then return end
+    if not b or not b._snArt then return end
     b._snActive = active
 
-    -- The window's visible fill starts ~4px BELOW the frame's true top edge
-    -- (OuterFrame inset), but these tabs anchor their bottom to that top edge.
-    -- So the fill must reach DOWN past the tab bottom to bridge that gap and
-    -- meet the window -- otherwise the game world shows through = "floating".
-    -- Inset the fill INSIDE the Page.tga body (sides 7 / top 8) so it doesn't
-    -- bleed into the art's transparent rounded corners. The ACTIVE tab's fill
-    -- (window-colored) reaches DOWN through the full top border strip (-16, the
-    -- 13px strip + slack) and, drawing ABOVE the frame's border, "opens" the
-    -- border beneath the tab so its interior flows into the frame = clean merge.
-    -- Idle tabs stop at the frame's top edge so the closed border shows beneath.
-    b._snFill:ClearAllPoints()
+    b._snArt:ClearAllPoints()
     if active then
-        b._snFill:SetPoint("TOPLEFT", 7, -8)
-        b._snFill:SetPoint("BOTTOMRIGHT", -7, -16)
-    else
-        b._snFill:SetPoint("TOPLEFT", 7, -8)
-        b._snFill:SetPoint("BOTTOMRIGHT", -7, -2)
-    end
-
-    if active then
+        b._snArt:SetTexture(PAGE_ACTIVE)
+        b._snArt:SetPoint("TOPLEFT", 0, 0)
+        b._snArt:SetPoint("BOTTOMRIGHT", 0, 0)
+        b._snArt:SetVertexColor(1, 1, 1)
         local wb = Theme.windowBot
-        setGradient(b._snFill, { wb[1], wb[2], wb[3], 1 }, { wb[1], wb[2], wb[3], 1 })
-        if b._snArt then b._snArt:SetVertexColor(1, 1, 1) end
+        b._snBridge:SetColorTexture(wb[1], wb[2], wb[3], 1)
+        b._snBridge:Show()
         b:SetFrameLevel(b._snBaseLevel + 20)
         local fs = b.GetFontString and b:GetFontString()
         if fs then fs:SetTextColor(unpackC(Theme.title)) end
     else
-        setGradient(b._snFill, Theme.tabBot, Theme.tabTop)
-        if b._snArt then b._snArt:SetVertexColor(0.55, 0.50, 0.62) end
+        b._snArt:SetTexture(PAGE_INACTIVE)
+        b._snArt:SetPoint("TOPLEFT", 0, 0)
+        b._snArt:SetPoint("BOTTOMRIGHT", 0, 0)
+        b._snArt:SetVertexColor(0.55, 0.55, 0.55)
+        b._snBridge:Hide()
         b:SetFrameLevel(b._snBaseLevel)
         local fs = b.GetFontString and b:GetFontString()
         if fs then fs:SetTextColor(unpackC(Theme.text)) end
     end
 end
 
--- ---------------------------------------------------------------------
--- Close button: rebuilt to match the buttons -> maroon background, with an
--- orange-gold X and border (same orange-gold as the title/button text).
--- ---------------------------------------------------------------------
 function Skin.CloseButton(b)
     if not b or b._snSkinned then return b end
     b._snSkinned = true
@@ -633,10 +532,6 @@ function Skin.CloseButton(b)
     return b
 end
 
--- ---------------------------------------------------------------------
--- Icon box: the close-button frame (maroon bg + gold border + hover) without
--- the X, for buttons that carry their own icon (e.g. the module lock).
--- ---------------------------------------------------------------------
 function Skin.IconBox(b)
     if not b or b._snIconBox then return b end
     b._snIconBox = true
@@ -661,12 +556,6 @@ function Skin.IconBox(b)
     return b
 end
 
--- ---------------------------------------------------------------------
--- Module lock toggle: the lock.tga silhouette tinted to the FONT colour, over
--- a BUTTON-BACKGROUND fill + gold border (matching the close X beside it).
--- Call b:SetLockedState(bool); the icon is bright when locked, dimmed when
--- unlocked, and brightens on hover. Theme-live via the refresher registry.
--- ---------------------------------------------------------------------
 function Skin.LockButton(b)
     if not b or b._snLock then return b end
     b._snLock = true
@@ -711,10 +600,6 @@ function Skin.LockButton(b)
     return b
 end
 
--- ---------------------------------------------------------------------
--- Hover highlight for player "character boxes" (name + icon entries),
--- matching the lightening the buttons get on mouseover.
--- ---------------------------------------------------------------------
 function Skin.HoverHighlight(b)
     if not b or not b.SetHighlightTexture then return b end
     b:SetHighlightTexture("Interface\\Buttons\\WHITE8x8")
@@ -725,9 +610,6 @@ function Skin.HoverHighlight(b)
     return b
 end
 
--- ---------------------------------------------------------------------
--- Input box: hide default border art, draw a dark inset slot behind it
--- ---------------------------------------------------------------------
 function Skin.Input(e)
     if not e or e._snSkinned then return e end
     e._snSkinned = true
@@ -738,7 +620,7 @@ function Skin.Input(e)
 
     local parent = e:GetParent()
     local bg = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    -- Match the editbox height exactly so label slots line up with player slots
+
     bg:SetPoint("TOPLEFT", e, "TOPLEFT", -4, 0)
     bg:SetPoint("BOTTOMRIGHT", e, "BOTTOMRIGHT", 0, 0)
     bg:SetFrameLevel(math.max(0, e:GetFrameLevel() - 1))
@@ -747,7 +629,6 @@ function Skin.Input(e)
     bg:SetBackdropBorderColor(unpackC(Theme.border))
     e._snBG = bg
 
-    -- Keep the slot background visibility in sync with the (possibly toggled) input
     e:HookScript("OnShow", function() bg:Show() end)
     e:HookScript("OnHide", function() bg:Hide() end)
     if not e:IsShown() then bg:Hide() end
@@ -757,15 +638,10 @@ function Skin.Input(e)
     return e
 end
 
--- ---------------------------------------------------------------------
--- Dropdown (WowStyle1DropdownTemplate): cover the default border with a
--- purple one and gold the text, to match the theme.
--- ---------------------------------------------------------------------
 function Skin.Dropdown(dd)
     if not dd or dd._snSkinned then return dd end
     dd._snSkinned = true
 
-    -- Dark inset slot behind the dropdown contents
     local bg = CreateFrame("Frame", nil, dd, "BackdropTemplate")
     bg:SetPoint("TOPLEFT", 1, -1)
     bg:SetPoint("BOTTOMRIGHT", -1, 1)
@@ -774,10 +650,6 @@ function Skin.Dropdown(dd)
     bg:SetBackdropColor(unpackC(Theme.slotBG))
     bg:SetBackdropBorderColor(0, 0, 0, 0)
 
-    -- (No purple border here -- the WowStyle1 dropdown keeps its own dark edge.)
-
-    -- Text always white (the template flips it to white on hover anyway);
-    -- arrow recolored to the orange-gold used by the letters.
     local function whiteText()
         if dd.Text and dd.Text.SetTextColor then dd.Text:SetTextColor(1, 1, 1) end
     end

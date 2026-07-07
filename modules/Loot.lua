@@ -1,17 +1,8 @@
 local addonName, SlerneNotes = ...
 
--- =====================================================================
--- LOOT HISTORY (host side)
--- Records group-loot drops for the equipment slots you choose to track:
--- who rolled, what they rolled, who won, and what the winner had in that
--- slot at the moment they won. "What they had" is fed by raid members who
--- run Slerne Notes Viewer (it broadcasts their equipped gear).
--- =====================================================================
-
 local LOOT_PREFIX = "SlerneLoot"
 C_ChatInfo.RegisterAddonMessagePrefix(LOOT_PREFIX)
 
--- Trackable slots (each maps to one or two inventory slot IDs).
 local SLOTS = {
     { key = "head",     label = "Head",      slots = { 1 } },
     { key = "neck",     label = "Neck",      slots = { 2 } },
@@ -43,14 +34,10 @@ local INVTYPE_TO_KEY = {
     INVTYPE_WEAPONOFFHAND = "offhand", INVTYPE_SHIELD = "offhand", INVTYPE_HOLDABLE = "offhand",
 }
 
--- runtime gear cache fed by Viewer broadcasts: lootGear[name][slotID] = {id, ilvl}
 SlerneNotes.lootGear = {}
--- dropKey -> log index, so repeated updates refresh the same entry
+
 SlerneNotes.lootDropMap = {}
 
--- ---------------------------------------------------------------------
--- Saved data
--- ---------------------------------------------------------------------
 local function GetTracked()
     if not SlerneNotesDB.lootTrackedSlots then
         SlerneNotesDB.lootTrackedSlots = {}
@@ -64,9 +51,6 @@ local function GetLog()
     return SlerneNotesDB.lootLog
 end
 
--- ---------------------------------------------------------------------
--- Gear lookup ("what they had")
--- ---------------------------------------------------------------------
 local function ShortName(name)
     if not name then return nil end
     return (strsplit("-", name))
@@ -97,9 +81,6 @@ local function GetPlayerSlotItems(name, slotKey)
     return out
 end
 
--- ---------------------------------------------------------------------
--- Loot capture (Blizzard group-loot history)
--- ---------------------------------------------------------------------
 local function RollStateLabel(state)
     local E = Enum and Enum.EncounterLootDropRollState
     if not state or not E then return "" end
@@ -132,9 +113,7 @@ local function ProcessDrop(encounterID, lootListID)
     local idx = SlerneNotes.lootDropMap[dropKey]
     local entry = idx and log[idx]
     if not entry then
-        -- Auto-reset so the loot history never grows without bound (mirrors the
-        -- roster log's cap). At 50 entries, wipe and start fresh -- the drop that
-        -- tripped the cap becomes the new first entry.
+
         if #log >= 50 then
             wipe(log)
             wipe(SlerneNotes.lootDropMap)
@@ -146,7 +125,6 @@ local function ProcessDrop(encounterID, lootListID)
     entry.itemLink = di.itemHyperlink
     entry.slotKey = slotKey
 
-    -- rollers + their rolls (field name may vary by client; handle both)
     entry.rolls = {}
     local infos = di.rollInfos or di.players or {}
     for _, ri in ipairs(infos) do
@@ -161,7 +139,6 @@ local function ProcessDrop(encounterID, lootListID)
         end
     end
 
-    -- winner + snapshot of what they had (captured once, before they re-gear)
     if di.winner and di.winner.playerName then
         entry.winner = ShortName(di.winner.playerName)
         entry.winnerClass = di.winner.playerClass
@@ -182,9 +159,6 @@ local function ProcessEncounter(encounterID)
     end
 end
 
--- ---------------------------------------------------------------------
--- Comm: receive gear feed, request gear from Viewers
--- ---------------------------------------------------------------------
 local function OnGear(sender, dataStr)
     local name = ShortName(sender)
     if not name then return end
@@ -201,7 +175,7 @@ end
 
 local function SendGearRequest()
     local ch, tgt
-    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then ch = "INSTANCE_CHAT" -- instances drop PARTY/RAID
+    if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then ch = "INSTANCE_CHAT"
     elseif IsInRaid() then ch = "RAID"
     elseif IsInGroup() then ch = "PARTY"
     else ch, tgt = "WHISPER", UnitName("player") end
@@ -234,9 +208,6 @@ lootFrame:SetScript("OnEvent", function(self, event, ...)
     end
 end)
 
--- =====================================================================
--- UI (built into the Loot tab)
--- =====================================================================
 local rowPool = {}
 local CONTENT_W = 1380
 
@@ -260,7 +231,6 @@ local function BuildLootUI()
     if not tab or tab._snBuilt then return end
     tab._snBuilt = true
 
-    -- Left: tracked-slot checkboxes + clear button
     local left = CreateFrame("Frame", nil, tab, "BackdropTemplate")
     left:SetWidth(220)
     left:SetPoint("TOPLEFT", 0, 0)
@@ -280,7 +250,7 @@ local function BuildLootUI()
         cb:SetSize(24, 24)
         cb:SetPoint("TOPLEFT", 16, y)
         cb:SetChecked(tracked[def.key])
-        -- Checkmark follows the theme font colour; the label stays white.
+
         if cb.GetCheckedTexture then SlerneNotes.Skin.TintTexture(cb:GetCheckedTexture()) end
         cb.text = cb:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         cb.text:SetPoint("LEFT", cb, "RIGHT", 4, 0)
@@ -305,7 +275,6 @@ local function BuildLootUI()
     end)
     SlerneNotes.Skin.Button(clearBtn)
 
-    -- Right: scrollable log
     local scroll = CreateFrame("ScrollFrame", nil, tab, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", left, "TOPRIGHT", 14, 0)
     scroll:SetPoint("BOTTOMRIGHT", -28, 0)
@@ -394,13 +363,11 @@ function SlerneNotes.UpdateLootList()
         row:Show()
         y = y - h - 6
     end
-    -- Floor the content to the scroll height so the bar shows a full (disabled)
-    -- thumb when there's nothing to scroll, and grows as entries pile up.
+
     local minH = SlerneNotes.lootScroll and SlerneNotes.lootScroll:GetHeight() or 10
     child:SetHeight(math.max(minH, -y + 10))
 end
 
--- Refresh checkbox state + list when the tab is opened.
 function SlerneNotes.RefreshLootUI()
     BuildLootUI()
     local tracked = GetTracked()
@@ -413,12 +380,8 @@ function SlerneNotes.RefreshLootUI()
     SlerneNotes.UpdateLootList()
 end
 
--- Build immediately so the tab isn't empty on first open.
 BuildLootUI()
 
--- ---------------------------------------------------------------------
--- Solo test helpers:  /snloot sim  |  /snloot gear
--- ---------------------------------------------------------------------
 SLASH_SNLOOT1 = "/snloot"
 SlashCmdList["SNLOOT"] = function(msg)
     msg = (msg or ""):lower()
@@ -429,7 +392,7 @@ SlashCmdList["SNLOOT"] = function(msg)
             print("  ", name, n .. " slots")
         end
     elseif msg == "sim" then
-        -- Fake a tracked drop won by you, using your main-hand, for a UI test.
+
         local link = GetInventoryItemLink("player", 16) or "|cffa335ee|Hitem:0|h[Test Item]|h|r"
         local log = GetLog()
         log[#log + 1] = {

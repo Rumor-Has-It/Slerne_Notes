@@ -1,11 +1,17 @@
 # Slerne Notes
 
+<p align="center">
+  <img src="logo.png" alt="Slerne Notes" width="480">
+</p>
+
 Raid assignment planner for World of Warcraft (Retail). Build a plan by dragging
 raid members into modules, drawing on a shared canvas, and broadcasting the
 result to your group.
 
 A read-only companion, Slerne Notes Viewer, lets members receive and view a plan
 without running the full addon.
+
+Parts of this addon were developed with AI assistance.
 
 ## Installation
 
