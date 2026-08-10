@@ -40,4 +40,5 @@ The MIT License covers the code only. It does not cover the image assets:
 
 - Custom art by Tado: https://instagram.com/tadogram
 - Secret easter egg art by Taco
+- Arena Maps & Boss/Add Icons by Ekto from Raidplan.io
 - Bundled libraries: LibStub, CallbackHandler-1.0, LibDataBroker-1.1, and LibDBIcon-1.0, each under its own license.
