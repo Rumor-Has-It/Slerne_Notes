@@ -2,9 +2,9 @@
 ## Title: Slerne Notes
 ## Notes: Organize raid members into custom categories with drag-and-drop
 ## Author: Slerne
-## Version: 0.9.1
+## Version: 0.9.2
 ## X-License: MIT
-## X-Credits: Custom art by tadogram (instagram.com/tadogram)
+## X-Credits: Custom art by Tado (instagram.com/tadogram). Secret easter egg art by Taco.
 ## IconTexture: Interface\AddOns\SlerneNotes\img\theme\LogoMinimap
 ## SavedVariables: SlerneNotesDB
 
@@ -23,5 +23,5 @@ modules\Drawing.lua
 modules\Roster.lua
 modules\Registries.lua
 modules\Loot.lua
-ui\Config.lua
+ui\Settings.lua
 ui\Minimap.lua

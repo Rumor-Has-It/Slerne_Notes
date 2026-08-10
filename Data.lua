@@ -469,14 +469,9 @@ function Data_AddStroke(stroke)
     if stroke then table.insert(Data_GetDrawings().strokes, stroke) end
 end
 
-function Data_RemoveLastStroke()
+function Data_RemoveStroke(index)
     local d = Data_GetDrawings()
-    if #d.strokes > 0 then table.remove(d.strokes) end
-end
-
-function Data_ClearDrawings()
-    local d = Data_GetDrawings()
-    wipe(d.strokes)
+    if d.strokes[index] then table.remove(d.strokes, index) end
 end
 
 function Data_AddMarker(kind, icon, x, y, size)
@@ -660,8 +655,7 @@ _G.Data_AddDummy = Data_AddDummy
 _G.Data_RemoveDummy = Data_RemoveDummy
 _G.Data_GetDrawings = Data_GetDrawings
 _G.Data_AddStroke = Data_AddStroke
-_G.Data_RemoveLastStroke = Data_RemoveLastStroke
-_G.Data_ClearDrawings = Data_ClearDrawings
+_G.Data_RemoveStroke = Data_RemoveStroke
 _G.Data_AddMarker = Data_AddMarker
 _G.Data_SetMarkerPos = Data_SetMarkerPos
 _G.Data_SetMarkerSize = Data_SetMarkerSize

@@ -34,9 +34,10 @@ Source code is released under the MIT License. See [LICENSE](LICENSE).
 The MIT License covers the code only. It does not cover the image assets:
 
 - World of Warcraft icons and map textures are property of Blizzard Entertainment. They are used in line with Blizzard's addon policy. This addon is free and non-commercial.
-- Custom art in `img/` was commissioned from tadogram and remains their property. It is included here with permission and is not licensed for reuse.
+- Custom art in `img/` was commissioned from Tado and Taco and remains their property. It is included here with permission and is not licensed for reuse.
 
 ## Credits
 
-- Custom art by tadogram: https://instagram.com/tadogram
+- Custom art by Tado: https://instagram.com/tadogram
+- Secret easter egg art by Taco
 - Bundled libraries: LibStub, CallbackHandler-1.0, LibDataBroker-1.1, and LibDBIcon-1.0, each under its own license.

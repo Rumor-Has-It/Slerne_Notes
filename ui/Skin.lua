@@ -128,17 +128,15 @@ local OUTER_FILL = {
 }
 
 local UI_PATH     = "Interface\\AddOns\\SlerneNotes\\img\\theme\\"
-local TAB_BORDER  = UI_PATH .. "Tab-ext.tga"
-local DIAMOND     = UI_PATH .. "Diamond.tga"
-
-local BORDER_UP   = UI_PATH .. "border-upper.tga"
-local BORDER_LO   = UI_PATH .. "border-lower.tga"
-local BORDER_LE   = UI_PATH .. "border-left.tga"
-local BORDER_RI   = UI_PATH .. "border-right.tga"
-local BORDER_DIA  = UI_PATH .. "border-diamond.tga"
+local BORDER_UP   = UI_PATH .. "BorderUpper.tga"
+local BORDER_LO   = UI_PATH .. "BorderLower.tga"
+local BORDER_LE   = UI_PATH .. "BorderLeft.tga"
+local BORDER_RI   = UI_PATH .. "BorderRight.tga"
+local BORDER_DIA  = UI_PATH .. "BorderDiamond.tga"
 local PAGE_ACTIVE   = UI_PATH .. "PageActive.tga"
 local PAGE_INACTIVE = UI_PATH .. "PageInactive.tga"
-local LOCK_ART    = UI_PATH .. "lock.tga"
+local LOCK_ART    = UI_PATH .. "Lock.tga"
+local SECRET_ART  = UI_PATH .. "Secret.tga"
 SlerneNotes.LockArt = LOCK_ART
 local EDGE_T      = 13
 local EDGE_S      = 15
@@ -196,6 +194,47 @@ function Skin.SetArtEdgesShade(r, v)
     if not r then return end
     for _, t in pairs(r.edges) do t:SetVertexColor(v, v, v) end
     for _, d in ipairs(r.diamonds) do d:SetVertexColor(v, v, v) end
+end
+
+function Skin.AttachSecret(frame, isEnabled)
+    if not frame or frame._snSecret then return end
+
+    local popupName = addonName .. "SecretFrame"
+    local popup = CreateFrame("Frame", popupName, UIParent)
+    popup:SetSize(569, 620)
+    popup:SetPoint("CENTER")
+    popup:SetFrameStrata("FULLSCREEN_DIALOG")
+    popup:SetFrameLevel(650)
+    popup:EnableMouse(true)
+    popup:SetMovable(true)
+    popup:RegisterForDrag("LeftButton")
+    popup:SetScript("OnDragStart", popup.StartMoving)
+    popup:SetScript("OnDragStop", popup.StopMovingOrSizing)
+    popup:Hide()
+    tinsert(UISpecialFrames, popupName)
+
+    local art = popup:CreateTexture(nil, "ARTWORK")
+    art:SetAllPoints()
+    art:SetTexture(SECRET_ART)
+
+    local close = CreateFrame("Button", nil, popup, "UIPanelCloseButton")
+    close:SetSize(24, 24)
+    close:SetPoint("TOPRIGHT", -2, -2)
+    close:SetScript("OnClick", function() popup:Hide() end)
+    Skin.CloseButton(close)
+
+    local hot = CreateFrame("Button", nil, frame)
+    hot:SetSize(20, 20)
+    hot:SetPoint("CENTER", frame, "BOTTOMRIGHT", -7.5, 6.5)
+    hot:SetFrameLevel(frame:GetFrameLevel() + 40)
+    hot:RegisterForClicks("LeftButtonUp")
+    hot:SetScript("OnClick", function()
+        if isEnabled and not isEnabled() then return end
+        popup:SetShown(not popup:IsShown())
+    end)
+
+    frame._snSecret = popup
+    return popup
 end
 
 local function setGradient(tex, botC, topC)
@@ -579,11 +618,13 @@ function Skin.LockButton(b)
 
     local function applyTint()
         local c = Theme.btnText
-        local f = b._snLocked and 1.0 or 0.45
-        if b._snHover then f = 1.0 end
+        local f = 0.45
+        if b._snLocked == true then f = 1.0
+        elseif b._snLocked == "icons" then f = 0.72 end
+        if b._snHover then f = math.min(1, f + 0.28) end
         tex:SetVertexColor(c[1] * f, c[2] * f, c[3] * f, 1)
     end
-    b.SetLockedState = function(self, locked) self._snLocked = locked and true or false; applyTint() end
+    b.SetLockedState = function(self, locked) self._snLocked = locked; applyTint() end
 
     b:HookScript("OnEnter", function(self)
         self._snHover = true; setGradient(bg, Theme.btnTop, Theme.btnHover); applyTint()

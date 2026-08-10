@@ -246,9 +246,11 @@ bossDropdown:SetupMenu(function(dropdown, root)
         for _, raid in ipairs(season.raids or {}) do
             local rMenu = sMenu:CreateButton(raid.raid)
             for _, fight in ipairs(raid.fights or {}) do
-                rMenu:CreateRadio(fight.label,
-                    function() return bossDropdown.selectedBoss == fight.file end,
-                    function() bossDropdown.selectedBoss = fight.file; bossDropdown:GenerateMenu() end)
+                if not fight.mapOnly then
+                    rMenu:CreateRadio(fight.label,
+                        function() return bossDropdown.selectedBoss == fight.file end,
+                        function() bossDropdown.selectedBoss = fight.file; bossDropdown:GenerateMenu() end)
+                end
             end
         end
     end
@@ -312,38 +314,6 @@ confirmDeleteNo:SetPoint("BOTTOMRIGHT", -40, 20)
 confirmDeleteNo:SetText("No")
 confirmDeleteNo:SetScript("OnClick", function() confirmDeleteDialog:Hide() end)
 SlerneNotes.Skin.Button(confirmDeleteNo)
-
-local confirmClearDialog = CreateFrame("Frame", "SlerneNotesConfirmClearDialog", frame, "BackdropTemplate")
-confirmClearDialog:SetSize(280, 96)
-confirmClearDialog:SetPoint("CENTER")
-confirmClearDialog:SetFrameStrata("FULLSCREEN_DIALOG")
-confirmClearDialog:SetFrameLevel(500)
-confirmClearDialog:EnableMouse(true)
-SlerneNotes.Skin.Panel(confirmClearDialog, SlerneNotes.Theme.windowBot, SlerneNotes.Theme.borderLight)
-confirmClearDialog:Hide()
-
-local confirmClearTitle = confirmClearDialog:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-confirmClearTitle:SetPoint("TOP", 0, -20)
-confirmClearTitle:SetText("Clear all pencil drawings?")
-SlerneNotes.Skin.Title(confirmClearTitle)
-
-local confirmClearYes = CreateFrame("Button", nil, confirmClearDialog, "UIPanelButtonTemplate")
-confirmClearYes:SetSize(75, 24)
-confirmClearYes:SetPoint("BOTTOM", -45, 16)
-confirmClearYes:SetText("Yes")
-confirmClearYes:SetScript("OnClick", function()
-    Data_ClearDrawings()
-    if SlerneNotes.UpdateDrawings then SlerneNotes.UpdateDrawings() end
-    confirmClearDialog:Hide()
-end)
-SlerneNotes.Skin.Button(confirmClearYes)
-
-local confirmClearNo = CreateFrame("Button", nil, confirmClearDialog, "UIPanelButtonTemplate")
-confirmClearNo:SetSize(75, 24)
-confirmClearNo:SetPoint("BOTTOM", 45, 16)
-confirmClearNo:SetText("No")
-confirmClearNo:SetScript("OnClick", function() confirmClearDialog:Hide() end)
-SlerneNotes.Skin.Button(confirmClearNo)
 
 local confirmDelPageDialog = CreateFrame("Frame", "SlerneNotesConfirmDelPageDialog", frame, "BackdropTemplate")
 confirmDelPageDialog:SetSize(280, 96)
@@ -656,7 +626,7 @@ local function PrepDialog(dlg)
     end)
     dlg:HookScript("OnHide", function() dialogDimmer:Hide() end)
 end
-for _, d in ipairs({ newModDialog, newCanvasDialog, confirmDeleteDialog, confirmClearDialog, confirmDelPageDialog, newDummyDialog, editModDialog }) do
+for _, d in ipairs({ newModDialog, newCanvasDialog, confirmDeleteDialog, confirmDelPageDialog, newDummyDialog, editModDialog }) do
     PrepDialog(d)
 end
 
@@ -664,7 +634,6 @@ function SlerneNotes.ShowNewDummyDialog() newDummyDialog:Show() end
 function SlerneNotes.ShowNewModDialog() newModDialog:Show() end
 function SlerneNotes.ShowNewCanvasDialog() newCanvasDialog:Show() end
 function SlerneNotes.ShowConfirmDeleteDialog() confirmDeleteDialog:Show() end
-function SlerneNotes.ShowConfirmClearDrawings() confirmClearDialog:Show() end
 function SlerneNotes.ShowConfirmDeletePage()
     if Data_GetPageCount() <= 1 then
         print("Slerne Notes: A canvas must keep at least one page.")

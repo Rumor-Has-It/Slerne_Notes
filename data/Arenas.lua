@@ -65,4 +65,40 @@ SlerneNotes.Arenas = {
             },
         },
     },
+    {
+        season = "Midnight S2",
+        raids = {
+            {
+                raid = "The Venomous Abyss",
+                fights = {
+                    { label = "Nek'zali the Soulcoiler", file = "midnight_s2\\the_venomous_abyss\\Nekzali.tga", w = 863, h = 767,
+                      icons = { "NekzaliBoss", "NekzaliAdd1", "NekzaliAdd2", "NekzaliAdd3", "NekzaliAdd4" } },
+                    { label = "Entombed Sentinels", file = "midnight_s2\\the_venomous_abyss\\Sentinels.tga", w = 772, h = 743,
+                      icons = { "SentinelsBoss1", "SentinelsBoss2", "SentinelsAdd1", "SentinelsAdd2" } },
+                    { label = "Vashnik the Malignant", file = "midnight_s2\\the_venomous_abyss\\Vashnik.tga", w = 1059, h = 764,
+                      icons = { "VashnikBoss", "VashnikAdd1", "VashnikAdd2", "VashnikAdd3", "VashnikAdd4" } },
+                    { label = "The Lost Explorers", file = "midnight_s2\\the_venomous_abyss\\Explorers.tga", w = 771, h = 744,
+                      icons = { "ExplorersBoss1", "ExplorersBoss2", "ExplorersBoss3", "ExplorersBoss4" } },
+                    { label = "Sszorak", file = "midnight_s2\\the_venomous_abyss\\Sszorak.tga", w = 729, h = 731,
+                      icons = { "SszorakBoss" } },
+                    { label = "The Twin Fangs", file = "midnight_s2\\the_venomous_abyss\\Fangs.tga", w = 750, h = 683,
+                      icons = { "FangsBoss1", "FangsBoss2", "FangsAdd1", "FangsAdd2" } },
+                    { label = "The Coiled Altar", file = "midnight_s2\\the_venomous_abyss\\Zuljan.tga", w = 723, h = 723,
+                      icons = { "ZuljanBoss1", "ZuljanBoss2", "ZuljanAdd1", "ZuljanAdd2", "ZuljanAdd3", "ZuljanAdd4" } },
+                    { label = "Ula'tek", file = "midnight_s2\\the_venomous_abyss\\Ulatek.tga", w = 687, h = 685,
+                      icons = { "UlatekBoss1", "UlatekBoss2", "UlatekAdd1", "UlatekAdd2", "UlatekAdd3", "UlatekAdd4",
+                                "UlatekAdd5", "UlatekAdd6", "UlatekAdd7", "UlatekAdd8", "UlatekAdd9" } },
+                    { label = "Ula'tek (Broken Arena)", file = "midnight_s2\\the_venomous_abyss\\UlatekBroken.tga", w = 726, h = 719,
+                      mapOnly = true },
+                },
+            },
+            {
+                raid = "The Tidebound Grotto",
+                fights = {
+                    { label = "Nymrissa Wavecaller", file = "midnight_s2\\the_tidebound_grotto\\Nymrissa.tga", w = 1003, h = 957,
+                      icons = { "NymrissaBoss", "NymrissaAdd1", "NymrissaAdd2", "NymrissaAdd3" } },
+                },
+            },
+        },
+    },
 }

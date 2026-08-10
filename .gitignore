@@ -8,6 +8,9 @@
 SavedVariables/
 *.lua.bak
 
+# User-supplied maps
+img/maps/custom/
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db

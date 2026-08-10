@@ -37,9 +37,9 @@ C_ChatInfo.RegisterAddonMessagePrefix(VER_PREFIX)
 SlerneNotes.viewerVersions = {}
 
 local verReqPending
-function SlerneNotes.RequestViewerVersions()
+function SlerneNotes.RequestViewerVersions(delay)
     if verReqPending then verReqPending:Cancel() end
-    verReqPending = C_Timer.NewTimer(1.5, function()
+    verReqPending = C_Timer.NewTimer(delay or 1.5, function()
         verReqPending = nil
         local ch, tgt
         if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then ch = "INSTANCE_CHAT"
@@ -239,6 +239,10 @@ function SlerneNotes.GetDrawingsExportString()
     local strokeParts = {}
     for _, stroke in ipairs(d.strokes or {}) do
         local hex = ColHex(stroke.color)
+        local a = stroke.alpha or 1
+        if a < 0.995 then hex = string.format("%02x", math.floor(a * 255 + 0.5)) .. hex end
+        local th = math.floor((stroke.thickness or 3) + 0.5)
+        if th ~= 3 then hex = hex .. "," .. th end
         local pts = {}
         for _, p in ipairs(stroke.points or {}) do
             pts[#pts + 1] = math.floor((p[1] or 0) + 0.5) .. "," .. math.floor((p[2] or 0) + 0.5)
@@ -248,14 +252,20 @@ function SlerneNotes.GetDrawingsExportString()
 
     local markerParts = {}
     for _, m in ipairs(d.markers or {}) do
-        markerParts[#markerParts + 1] = (m.kind or "marker") .. "," .. tostring(m.icon or 8) .. "," ..
+        local s = (m.kind or "marker") .. "," .. tostring(m.icon or 8) .. "," ..
             math.floor((m.x or 0) + 0.5) .. "," .. math.floor((m.y or 0) + 0.5) .. "," ..
             math.floor((m.size or 26) + 0.5)
+        local a = m.alpha or 1
+        if a < 0.995 then s = s .. "," .. math.floor(a * 100 + 0.5) end
+        markerParts[#markerParts + 1] = s
     end
 
     local textParts = {}
     for _, t in ipairs(d.texts or {}) do
-        textParts[#textParts + 1] = ColHex(t.color) .. "," ..
+        local hex = ColHex(t.color)
+        local a = t.alpha or 1
+        if a < 0.995 then hex = string.format("%02x", math.floor(a * 255 + 0.5)) .. hex end
+        textParts[#textParts + 1] = hex .. "," ..
             math.floor((t.x or 0) + 0.5) .. "," .. math.floor((t.y or 0) + 0.5) .. "," ..
             math.floor((t.size or 22) + 0.5) .. "," .. EscDraw(t.text)
     end
@@ -264,7 +274,7 @@ function SlerneNotes.GetDrawingsExportString()
     for _, s in ipairs(d.shapes or {}) do
         shapeParts[#shapeParts + 1] = ColHex(s.color) .. "," ..
             math.floor((s.x or 0) + 0.5) .. "," .. math.floor((s.y or 0) + 0.5) .. "," ..
-            math.floor((s.size or 80) + 0.5)
+            math.floor((s.size or 80) + 0.5) .. "," .. math.floor((s.alpha or 1) * 100 + 0.5)
     end
 
     local lineParts = {}
@@ -272,7 +282,8 @@ function SlerneNotes.GetDrawingsExportString()
         lineParts[#lineParts + 1] = ColHex(ln.color) .. "," ..
             math.floor((ln.x1 or 0) + 0.5) .. "," .. math.floor((ln.y1 or 0) + 0.5) .. "," ..
             math.floor((ln.x2 or 0) + 0.5) .. "," .. math.floor((ln.y2 or 0) + 0.5) .. "," ..
-            math.floor((ln.thickness or 3) + 0.5) .. "," .. (ln.arrow and "1" or "0")
+            math.floor((ln.thickness or 3) + 0.5) .. "," .. (ln.arrow and "1" or "0") .. "," ..
+            math.floor((ln.alpha or 1) * 100 + 0.5)
     end
 
     return table.concat(strokeParts, ";") .. "#" .. table.concat(markerParts, ";") .. "#"

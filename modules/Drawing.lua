@@ -60,6 +60,8 @@ local markerPool = {}
 local textPool = {}
 local shapePool = {}
 local lineObjPool = {}
+local strokeCatcherPool = {}
+local jointPool = {}
 
 local drawLayer = CreateFrame("Frame", nil, canvas)
 drawLayer:SetAllPoints(canvas)
@@ -112,7 +114,11 @@ local function createMarker(idx)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
         local mk = d.markers[self.index]
-        if mk then
+        if not mk then return end
+        if IsShiftKeyDown() then
+            mk.alpha = math.max(0.15, math.min(1, (mk.alpha or 1) + delta * 0.1))
+            self:SetAlpha(mk.alpha)
+        else
             mk.size = math.max(12, math.min(128, (mk.size or MARKER_SIZE) + delta * 3))
             self:SetSize(mk.size, mk.size)
         end
@@ -154,7 +160,11 @@ local function createTextItem(idx)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
         local t = d.texts[self.index]
-        if t then
+        if not t then return end
+        if IsShiftKeyDown() then
+            t.alpha = math.max(0.15, math.min(1, (t.alpha or 1) + delta * 0.1))
+            self:SetAlpha(t.alpha)
+        else
             t.size = math.max(10, math.min(48, (t.size or TEXT_FONT_SIZE) + delta * 2))
             self:SetFont(FONT_FILE, t.size, "OUTLINE")
             self:SetHeight(t.size + 8)
@@ -198,7 +208,7 @@ local function createShape(idx)
 
     f.fill = f:CreateTexture(nil, "ARTWORK")
     f.fill:SetAllPoints()
-    f.fill:SetColorTexture(1, 1, 1, 0.30)
+    f.fill:SetColorTexture(1, 1, 1, 1)
     local mask = f:CreateMaskTexture()
     mask:SetAllPoints(f.fill)
     mask:SetTexture(CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -224,7 +234,12 @@ local function createShape(idx)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
         local s = d.shapes[self.index]
-        if s then
+        if not s then return end
+        if IsShiftKeyDown() then
+            s.alpha = math.max(0.15, math.min(1, (s.alpha or 1) + delta * 0.1))
+            local c = s.color or { 1, 1, 1 }
+            self.fill:SetColorTexture(c[1], c[2], c[3], s.alpha)
+        else
             s.size = math.max(24, math.min(400, (s.size or CIRCLE_DEFAULT) + delta * 8))
             self:SetSize(s.size, s.size)
         end
@@ -283,13 +298,119 @@ local function createLineObj(idx)
         if mode ~= "off" then return end
         local d = Data_GetDrawings()
         local ln = d.lines[self.index]
-        if ln then
+        if not ln then return end
+        if IsShiftKeyDown() then
+            ln.alpha = math.max(0.15, math.min(1, (ln.alpha or 1) + delta * 0.1))
+            self:SetAlpha(ln.alpha)
+        else
             ln.thickness = math.max(2, math.min(40, (ln.thickness or LINE_THICKNESS) + delta))
             SlerneNotes.UpdateDrawings()
         end
     end)
     lineObjPool[idx] = f
     return f
+end
+
+local function createStrokeCatcher(idx)
+    local cf = CreateFrame("Frame", nil, drawLayer)
+    cf:SetFrameLevel(drawLayer:GetFrameLevel())
+    cf:SetMovable(true)
+    cf:RegisterForDrag("LeftButton")
+    cf:EnableMouseWheel(true)
+
+    cf:SetScript("OnDragStart", function(self)
+        if mode ~= "off" then return end
+        local d = Data_GetDrawings()
+        if not d.strokes[self.index] then return end
+        self._fromL = self:GetLeft()
+        self._fromT = self:GetTop()
+        local bx = (self:GetLeft() or 0) - (drawLayer:GetLeft() or 0)
+        local by = (self:GetTop() or 0) - (drawLayer:GetTop() or 0)
+        local used = 0
+        for si, st in ipairs(d.strokes) do
+            local pts = st.points or {}
+            for k = 2, #pts do
+                used = used + 1
+                if si == self.index then
+                    local l = linePool[used]
+                    if l then
+                        l:SetStartPoint("TOPLEFT", self, pts[k - 1][1] - bx, pts[k - 1][2] - by)
+                        l:SetEndPoint("TOPLEFT", self, pts[k][1] - bx, pts[k][2] - by)
+                    end
+                end
+            end
+        end
+        for _, j in ipairs(jointPool) do j:Hide() end
+        self:StartMoving()
+    end)
+    cf:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local dx = (self:GetLeft() or 0) - (self._fromL or self:GetLeft() or 0)
+        local dy = (self:GetTop() or 0) - (self._fromT or self:GetTop() or 0)
+        self._fromL, self._fromT = nil, nil
+        local d = Data_GetDrawings()
+        local s = d.strokes[self.index]
+        if s then
+            for _, p in ipairs(s.points or {}) do
+                p[1] = (p[1] or 0) + dx
+                p[2] = (p[2] or 0) + dy
+            end
+        end
+        SlerneNotes.UpdateDrawings()
+    end)
+    cf:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" and mode == "off" then
+            Data_RemoveStroke(self.index)
+            SlerneNotes.UpdateDrawings()
+        end
+    end)
+    cf:SetScript("OnMouseWheel", function(self, delta)
+        if mode ~= "off" then return end
+        local d = Data_GetDrawings()
+        local s = d.strokes[self.index]
+        if not s then return end
+        if IsShiftKeyDown() then
+            s.alpha = math.max(0.15, math.min(1, (s.alpha or 1) + delta * 0.1))
+        else
+            s.thickness = math.max(2, math.min(40, (s.thickness or LINE_THICKNESS) + delta))
+        end
+        SlerneNotes.UpdateDrawings()
+    end)
+    strokeCatcherPool[idx] = cf
+    return cf
+end
+
+local function getJoint(i)
+    local t = jointPool[i]
+    if not t then
+        t = drawLayer:CreateTexture(nil, "ARTWORK")
+        t:SetColorTexture(1, 1, 1, 1)
+        local mask = drawLayer:CreateMaskTexture()
+        mask:SetAllPoints(t)
+        mask:SetTexture(CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        t:AddMaskTexture(mask)
+        jointPool[i] = t
+    end
+    return t
+end
+
+local function rectContains(r, x, y)
+    return x >= r.x and x <= r.x + r.w and y <= r.y and y >= r.y - r.h
+end
+
+local function pointLocked(x, y)
+    for _, r in ipairs(SlerneNotes.iconLockRects or {}) do
+        if rectContains(r, x, y) then return true end
+    end
+    return false
+end
+
+local function strokeLocked(pts)
+    if #pts == 0 then return false end
+    for _, p in ipairs(pts) do
+        if not pointLocked(p[1] or 0, p[2] or 0) then return false end
+    end
+    return true
 end
 
 function SlerneNotes.UpdateDrawings()
@@ -305,11 +426,24 @@ function SlerneNotes.UpdateDrawings()
     for _, t in ipairs(textPool) do t:Hide() end
     for _, s in ipairs(shapePool) do s:Hide() end
     for _, l in ipairs(lineObjPool) do l:Hide() end
+    for _, cfr in ipairs(strokeCatcherPool) do cfr:Hide() end
+    for _, j in ipairs(jointPool) do j:Hide() end
 
     local used = 0
-    for _, stroke in ipairs(d.strokes) do
+    local jointUsed = 0
+    for sIdx, stroke in ipairs(d.strokes) do
         local pts = stroke.points
         local c = stroke.color or { 1, 1, 1 }
+        local th = stroke.thickness or LINE_THICKNESS
+        local sa = stroke.alpha or 1
+        local minX, maxX, minY, maxY
+        for i = 1, #pts do
+            local px, py = pts[i][1] or 0, pts[i][2] or 0
+            if not minX or px < minX then minX = px end
+            if not maxX or px > maxX then maxX = px end
+            if not minY or py < minY then minY = py end
+            if not maxY or py > maxY then maxY = py end
+        end
         for i = 2, #pts do
             used = used + 1
             local l = linePool[used]
@@ -317,12 +451,33 @@ function SlerneNotes.UpdateDrawings()
                 l = drawLayer:CreateLine(nil, "ARTWORK")
                 linePool[used] = l
             end
-            l:SetThickness(LINE_THICKNESS)
-            l:SetColorTexture(c[1], c[2], c[3], 1)
+            l:SetThickness(th)
+            l:SetColorTexture(c[1], c[2], c[3], sa)
             l:SetStartPoint("TOPLEFT", drawLayer, pts[i - 1][1], pts[i - 1][2])
             l:SetEndPoint("TOPLEFT", drawLayer, pts[i][1], pts[i][2])
             l:Show()
         end
+        if th >= 5 then
+            for i = 1, #pts do
+                jointUsed = jointUsed + 1
+                local jt = getJoint(jointUsed)
+                jt:SetSize(th, th)
+                jt:SetColorTexture(c[1], c[2], c[3], sa)
+                jt:ClearAllPoints()
+                jt:SetPoint("CENTER", drawLayer, "TOPLEFT", pts[i][1] or 0, pts[i][2] or 0)
+                jt:Show()
+            end
+        end
+        local cf = strokeCatcherPool[sIdx] or createStrokeCatcher(sIdx)
+        cf.index = sIdx
+        local pad = math.max(8, th)
+        cf:ClearAllPoints()
+        cf:SetPoint("TOPLEFT", drawLayer, "TOPLEFT", (minX or 0) - pad, (maxY or 0) + pad)
+        cf:SetSize(((maxX or 0) - (minX or 0)) + 2 * pad, ((maxY or 0) - (minY or 0)) + 2 * pad)
+        local cOn = mode == "off" and not strokeLocked(pts)
+        cf:EnableMouse(cOn)
+        cf:EnableMouseWheel(cOn)
+        cf:Show()
     end
 
     for idx, mk in ipairs(d.markers) do
@@ -330,8 +485,10 @@ function SlerneNotes.UpdateDrawings()
         m.index = idx
         applyIconTexture(m.tex, mk.kind, mk.icon)
         m:SetSize(mk.size or MARKER_SIZE, mk.size or MARKER_SIZE)
-        m:EnableMouse(mode == "off")
-        m:EnableMouseWheel(mode == "off")
+        m:SetAlpha(mk.alpha or 1)
+        local mOn = mode == "off" and not pointLocked(mk.x or 0, mk.y or 0)
+        m:EnableMouse(mOn)
+        m:EnableMouseWheel(mOn)
         m:ClearAllPoints()
         m:SetPoint("CENTER", drawLayer, "TOPLEFT", mk.x or 0, mk.y or 0)
         m:Show()
@@ -341,10 +498,12 @@ function SlerneNotes.UpdateDrawings()
         local f = shapePool[idx] or createShape(idx)
         f.index = idx
         local c = sh.color or { 1, 1, 1 }
-        f.fill:SetColorTexture(c[1], c[2], c[3], 0.30)
+        f.fill:SetColorTexture(c[1], c[2], c[3], sh.alpha or 1)
         f:SetSize(sh.size or CIRCLE_DEFAULT, sh.size or CIRCLE_DEFAULT)
-        f:EnableMouse(mode == "off")
-        f:EnableMouseWheel(mode == "off")
+        f:SetAlpha(1)
+        local sOn = mode == "off" and not pointLocked(sh.x or 0, sh.y or 0)
+        f:EnableMouse(sOn)
+        f:EnableMouseWheel(sOn)
         f:ClearAllPoints()
         f:SetPoint("CENTER", drawLayer, "TOPLEFT", sh.x or 0, sh.y or 0)
         f:Show()
@@ -391,8 +550,10 @@ function SlerneNotes.UpdateDrawings()
             f.seg:SetEndPoint("TOPLEFT", f, x2 - fl, y2 - ft)
             f.head:Hide()
         end
-        f:EnableMouse(mode == "off")
-        f:EnableMouseWheel(mode == "off")
+        f:SetAlpha(ln.alpha or 1)
+        local lOn = mode == "off" and not (pointLocked(x1, y1) and pointLocked(x2, y2))
+        f:EnableMouse(lOn)
+        f:EnableMouseWheel(lOn)
         f:Show()
     end
 
@@ -404,12 +565,128 @@ function SlerneNotes.UpdateDrawings()
         eb:SetText(t.text or "")
         local c = t.color or { 1, 1, 1 }
         eb:SetTextColor(c[1], c[2], c[3], 1)
-        eb:EnableMouse(mode == "off")
-        eb:EnableMouseWheel(mode == "off")
+        eb:SetAlpha(t.alpha or 1)
+        local tOn = mode == "off" and not pointLocked(t.x or 0, t.y or 0)
+        eb:EnableMouse(tOn)
+        eb:EnableMouseWheel(tOn)
         eb:ClearAllPoints()
         eb:SetPoint("TOPLEFT", drawLayer, "TOPLEFT", t.x or 0, t.y or 0)
         eb:Show()
     end
+end
+
+function SlerneNotes.CaptureDrawingsForModule(modFrame, rect)
+    if not Data_GetDrawings then return end
+    local d = Data_GetDrawings()
+    local cap = { markers = {}, texts = {}, shapes = {}, lines = {}, strokes = {} }
+
+    for i, mk in ipairs(d.markers) do
+        if rectContains(rect, mk.x or 0, mk.y or 0) then
+            cap.markers[#cap.markers + 1] = i
+            local m = markerPool[i]
+            if m then
+                m:ClearAllPoints()
+                m:SetPoint("CENTER", modFrame, "TOPLEFT", (mk.x or 0) - rect.x, (mk.y or 0) - rect.y)
+            end
+        end
+    end
+    for i, t in ipairs(d.texts) do
+        if rectContains(rect, t.x or 0, t.y or 0) then
+            cap.texts[#cap.texts + 1] = i
+            local eb = textPool[i]
+            if eb then
+                eb:ClearAllPoints()
+                eb:SetPoint("TOPLEFT", modFrame, "TOPLEFT", (t.x or 0) - rect.x, (t.y or 0) - rect.y)
+            end
+        end
+    end
+    for i, sh in ipairs(d.shapes) do
+        if rectContains(rect, sh.x or 0, sh.y or 0) then
+            cap.shapes[#cap.shapes + 1] = i
+            local f = shapePool[i]
+            if f then
+                f:ClearAllPoints()
+                f:SetPoint("CENTER", modFrame, "TOPLEFT", (sh.x or 0) - rect.x, (sh.y or 0) - rect.y)
+            end
+        end
+    end
+    for i, ln in ipairs(d.lines) do
+        if rectContains(rect, ln.x1 or 0, ln.y1 or 0) and rectContains(rect, ln.x2 or 0, ln.y2 or 0) then
+            cap.lines[#cap.lines + 1] = i
+            local f = lineObjPool[i]
+            if f then
+                f:ClearAllPoints()
+                f:SetPoint("TOPLEFT", modFrame, "TOPLEFT", (f._fl or 0) - rect.x, (f._ft or 0) - rect.y)
+            end
+        end
+    end
+
+    local capturedStroke = {}
+    for i, s in ipairs(d.strokes) do
+        local pts = s.points or {}
+        local inside = #pts > 0
+        for _, p in ipairs(pts) do
+            if not rectContains(rect, p[1] or 0, p[2] or 0) then inside = false; break end
+        end
+        if inside then
+            cap.strokes[#cap.strokes + 1] = i
+            capturedStroke[i] = true
+        end
+    end
+    local used = 0
+    for si, s in ipairs(d.strokes) do
+        local pts = s.points or {}
+        for k = 2, #pts do
+            used = used + 1
+            if capturedStroke[si] then
+                local l = linePool[used]
+                if l then
+                    l:SetStartPoint("TOPLEFT", modFrame, pts[k - 1][1] - rect.x, pts[k - 1][2] - rect.y)
+                    l:SetEndPoint("TOPLEFT", modFrame, pts[k][1] - rect.x, pts[k][2] - rect.y)
+                end
+            end
+        end
+    end
+    if #cap.strokes > 0 then
+        for _, j in ipairs(jointPool) do j:Hide() end
+    end
+
+    modFrame._dragCapture = cap
+end
+
+function SlerneNotes.CommitCapturedDrawings(modFrame, dx, dy)
+    local cap = modFrame._dragCapture
+    modFrame._dragCapture = nil
+    if not cap or not Data_GetDrawings then return end
+    local d = Data_GetDrawings()
+    dx, dy = dx or 0, dy or 0
+    for _, i in ipairs(cap.markers) do
+        local mk = d.markers[i]
+        if mk then mk.x = (mk.x or 0) + dx; mk.y = (mk.y or 0) + dy end
+    end
+    for _, i in ipairs(cap.texts) do
+        local t = d.texts[i]
+        if t then t.x = (t.x or 0) + dx; t.y = (t.y or 0) + dy end
+    end
+    for _, i in ipairs(cap.shapes) do
+        local sh = d.shapes[i]
+        if sh then sh.x = (sh.x or 0) + dx; sh.y = (sh.y or 0) + dy end
+    end
+    for _, i in ipairs(cap.lines) do
+        local ln = d.lines[i]
+        if ln then
+            ln.x1 = (ln.x1 or 0) + dx; ln.y1 = (ln.y1 or 0) + dy
+            ln.x2 = (ln.x2 or 0) + dx; ln.y2 = (ln.y2 or 0) + dy
+        end
+    end
+    for _, i in ipairs(cap.strokes) do
+        local s = d.strokes[i]
+        for _, p in ipairs(s and s.points or {}) do
+            p[1] = (p[1] or 0) + dx
+            p[2] = (p[2] or 0) + dy
+        end
+    end
+    SlerneNotes.UpdateDrawings()
 end
 
 local function onDrawUpdate()
@@ -496,10 +773,7 @@ setMode = function(m)
     drawLayer:SetScript("OnUpdate", nil)
     clearPreview()
     drawLayer:EnableMouse(m ~= "off")
-    for _, mk in ipairs(markerPool) do mk:EnableMouse(m == "off"); mk:EnableMouseWheel(m == "off") end
-    for _, t in ipairs(textPool) do t:EnableMouse(m == "off"); t:EnableMouseWheel(m == "off") end
-    for _, s in ipairs(shapePool) do s:EnableMouse(m == "off"); s:EnableMouseWheel(m == "off") end
-    for _, l in ipairs(lineObjPool) do l:EnableMouse(m == "off"); l:EnableMouseWheel(m == "off") end
+    if Data_GetDrawings then SlerneNotes.UpdateDrawings() end
 
     if m == "off" then
         SlerneNotes.frame:RegisterForDrag("LeftButton")
@@ -632,9 +906,6 @@ end
 
 toolButton("Select", 42, "off", function() setMode("off") end)
 toolButton("Pencil", 42, "pencil", function() setMode("pencil") end)
-toolButton("Undo", 40, nil, function() Data_RemoveLastStroke(); SlerneNotes.UpdateDrawings() end)
-
-toolButton("Clear", 40, nil, function() SlerneNotes.ShowConfirmClearDrawings() end)
 
 x = x + 5
 for _, c in ipairs(COLORS) do

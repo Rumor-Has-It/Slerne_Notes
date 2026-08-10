@@ -40,16 +40,16 @@ local btnLoot = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
 btnLoot:SetSize(108, 54); btnLoot:SetPoint("TOPRIGHT", btnRegistries, "BOTTOMRIGHT", 0, -10)
 btnLoot:SetText("Loot")
 
-local btnConfig = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
-btnConfig:SetSize(108, 54); btnConfig:SetPoint("TOPRIGHT", btnLoot, "BOTTOMRIGHT", 0, -10)
-btnConfig:SetText("Config")
+local btnSettings = CreateFrame("Button", nil, tabBar, "UIPanelButtonTemplate")
+btnSettings:SetSize(108, 54); btnSettings:SetPoint("TOPRIGHT", btnLoot, "BOTTOMRIGHT", 0, -10)
+btnSettings:SetText("Settings")
 
 SlerneNotes.Skin.FolderTab(btnNotes)
 SlerneNotes.Skin.FolderTab(btnRoster)
 SlerneNotes.Skin.FolderTab(btnRegistries)
 SlerneNotes.Skin.FolderTab(btnLoot)
-SlerneNotes.Skin.FolderTab(btnConfig)
-SlerneNotes.tabs = { btnNotes, btnRoster, btnRegistries, btnLoot, btnConfig }
+SlerneNotes.Skin.FolderTab(btnSettings)
+SlerneNotes.tabs = { btnNotes, btnRoster, btnRegistries, btnLoot, btnSettings }
 local function SetActiveTab(active)
     for _, t in ipairs(SlerneNotes.tabs) do
         SlerneNotes.Skin.SetFolderTabActive(t, t == active)
@@ -82,11 +82,15 @@ SlerneNotes.lootTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, C
 SlerneNotes.lootTab:SetFrameLevel(CONTENT_LEVEL)
 SlerneNotes.lootTab:Hide()
 
-SlerneNotes.configTab = CreateFrame("Frame", nil, frame)
-SlerneNotes.configTab:SetPoint("TOPLEFT", bg, "TOPLEFT", CONTENT_INSET, -CONTENT_INSET)
-SlerneNotes.configTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
-SlerneNotes.configTab:SetFrameLevel(CONTENT_LEVEL)
-SlerneNotes.configTab:Hide()
+SlerneNotes.settingsTab = CreateFrame("Frame", nil, frame)
+SlerneNotes.settingsTab:SetPoint("TOPLEFT", bg, "TOPLEFT", CONTENT_INSET, -CONTENT_INSET)
+SlerneNotes.settingsTab:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -CONTENT_INSET, CONTENT_INSET)
+SlerneNotes.settingsTab:SetFrameLevel(CONTENT_LEVEL)
+SlerneNotes.settingsTab:Hide()
+
+SlerneNotes.Skin.AttachSecret(bg, function()
+    return SlerneNotes.settingsTab and SlerneNotes.settingsTab:IsShown()
+end)
 
 local currentTab = "notes"
 local function ShowOnly(tab)
@@ -95,7 +99,7 @@ local function ShowOnly(tab)
     SlerneNotes.rosterTab:SetShown(tab == "roster")
     SlerneNotes.registriesTab:SetShown(tab == "registries")
     SlerneNotes.lootTab:SetShown(tab == "loot")
-    SlerneNotes.configTab:SetShown(tab == "config")
+    SlerneNotes.settingsTab:SetShown(tab == "settings")
 end
 btnNotes:SetScript("OnClick", function()
     ShowOnly("notes")
@@ -116,10 +120,10 @@ btnLoot:SetScript("OnClick", function()
     SetActiveTab(btnLoot)
     if SlerneNotes.RefreshLootUI then SlerneNotes.RefreshLootUI() end
 end)
-btnConfig:SetScript("OnClick", function()
-    ShowOnly("config")
-    SetActiveTab(btnConfig)
-    if SlerneNotes.RefreshConfigUI then SlerneNotes.RefreshConfigUI() end
+btnSettings:SetScript("OnClick", function()
+    ShowOnly("settings")
+    SetActiveTab(btnSettings)
+    if SlerneNotes.RefreshSettingsUI then SlerneNotes.RefreshSettingsUI() end
 end)
 
 SetActiveTab(btnNotes)
@@ -129,14 +133,14 @@ local tabOrder = {
     { btn = btnRoster,     key = "roster" },
     { btn = btnRegistries, key = "registries" },
     { btn = btnLoot,       key = "loot" },
-    { btn = btnConfig,     key = "config" },
+    { btn = btnSettings,   key = "settings" },
 }
 
 function SlerneNotes.ApplyPluginVisibility()
     local hidden = (Data_GetHiddenPlugins and Data_GetHiddenPlugins()) or {}
     local prev
     for _, t in ipairs(tabOrder) do
-        local hide = hidden[t.key] and t.key ~= "notes" and t.key ~= "config"
+        local hide = hidden[t.key] and t.key ~= "notes" and t.key ~= "settings"
         t.btn:SetShown(not hide)
         if not hide then
             t.btn:ClearAllPoints()
@@ -344,6 +348,8 @@ function SlerneNotes.UpdatePageTabs()
         shown = shown + 1
         local t = getPageTab(shown)
         t:SetText(text)
+        local fs = t:GetFontString()
+        if fs then fs:SetPoint("CENTER", t, "CENTER", text == "1" and -1 or 0, 4) end
         t:SetScript("OnClick", onClick)
         t:ClearAllPoints()
 
@@ -432,9 +438,11 @@ footerBossDropdown:SetupMenu(function(dropdown, root)
         for _, raid in ipairs(season.raids or {}) do
             local rMenu = sMenu:CreateButton(raid.raid)
             for _, fight in ipairs(raid.fights or {}) do
-                rMenu:CreateRadio(fight.label,
-                    function() return Data_GetCanvasBoss() == fight.file end,
-                    function() applyFooterBoss(fight.file) end)
+                if not fight.mapOnly then
+                    rMenu:CreateRadio(fight.label,
+                        function() return Data_GetCanvasBoss() == fight.file end,
+                        function() applyFooterBoss(fight.file) end)
+                end
             end
         end
     end

@@ -1,6 +1,7 @@
 local addonName, SlerneNotes = ...
 local modPool = {}
 SlerneNotes.dropTargets = {}
+SlerneNotes.iconLockRects = {}
 
 local function Clear(f)
     if not f then return end
@@ -99,6 +100,7 @@ function SlerneNotes.UpdateModules()
 
     Clear(right)
     wipe(SlerneNotes.dropTargets)
+    wipe(SlerneNotes.iconLockRects)
 
     local layout = EnsureModules()
     local currentRoster = SlerneNotes:GetCombinedRoster()
@@ -118,19 +120,36 @@ function SlerneNotes.UpdateModules()
             modFrame:EnableMouse(true)
             modFrame:RegisterForDrag("LeftButton")
             modFrame:SetScript("OnDragStart", function(self)
-                if not self.locked then self:StartMoving() end
+                if self.locked then return end
+                if self.iconLock and SlerneNotes.CaptureDrawingsForModule then
+                    local parent = self:GetParent()
+                    local rx = (self:GetLeft() or 0) - (parent:GetLeft() or 0)
+                    local ry = (self:GetTop() or 0) - (parent:GetTop() or 0)
+                    self._dragFromX, self._dragFromY = rx, ry
+                    SlerneNotes.CaptureDrawingsForModule(self,
+                        { x = rx, y = ry, w = self:GetWidth() or 0, h = self:GetHeight() or 0 })
+                end
+                self:StartMoving()
             end)
             modFrame:SetScript("OnDragStop", function(self)
                 self:StopMovingOrSizing()
                 local parent = self:GetParent()
                 local pX, pY = parent:GetLeft(), parent:GetTop()
                 local fX, fY = self:GetLeft(), self:GetTop()
+                local dx, dy = 0, 0
                 if pX and pY and fX and fY then
                     local relX, relY = fX - pX, fY - pY
                     Data_SetModulePosition(self.modName, relX, relY)
 
                     self:ClearAllPoints()
                     self:SetPoint("TOPLEFT", parent, "TOPLEFT", relX, relY)
+                    if self._dragFromX then
+                        dx, dy = relX - self._dragFromX, relY - self._dragFromY
+                    end
+                end
+                self._dragFromX, self._dragFromY = nil, nil
+                if SlerneNotes.CommitCapturedDrawings then
+                    SlerneNotes.CommitCapturedDrawings(self, dx, dy)
                 end
             end)
 
@@ -150,6 +169,12 @@ function SlerneNotes.UpdateModules()
             modFrame.lockBtn:SetPoint("RIGHT", modFrame.closeBtn, "LEFT", -2, 0)
             modFrame.lockBtn:EnableMouse(true)
             modFrame.lockBtn:RegisterForClicks("LeftButtonUp")
+            modFrame.lockBtn:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:AddLine(self._stateText or "Lock")
+                GameTooltip:Show()
+            end)
+            modFrame.lockBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
             SlerneNotes.Skin.LockButton(modFrame.lockBtn)
 
             modFrame.swapBtn = CreateFrame("Button", nil, modFrame)
@@ -197,10 +222,26 @@ function SlerneNotes.UpdateModules()
             SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
         end)
 
-        modFrame.locked = meta.locked
+        local isImage = (meta.type == "Image")
+        if not isImage and meta.locked == "icons" then meta.locked = true end
+        modFrame.locked = (meta.locked == true)
+        modFrame.iconLock = isImage and meta.locked == "icons"
         modFrame.lockBtn:SetLockedState(meta.locked)
+        if isImage then
+            if meta.locked == true then modFrame.lockBtn._stateText = "Fully locked"
+            elseif meta.locked == "icons" then modFrame.lockBtn._stateText = "Icons locked (dragging the image moves its icons)"
+            else modFrame.lockBtn._stateText = "Unlocked" end
+        else
+            modFrame.lockBtn._stateText = meta.locked and "Locked" or "Unlocked"
+        end
         modFrame.lockBtn:SetScript("OnClick", function()
-            meta.locked = not meta.locked
+            if isImage then
+                if not meta.locked then meta.locked = "icons"
+                elseif meta.locked == "icons" then meta.locked = true
+                else meta.locked = false end
+            else
+                meta.locked = not meta.locked
+            end
             SlerneNotes.UpdateModules()
         end)
 
@@ -513,6 +554,11 @@ function SlerneNotes.UpdateModules()
         modFrame:ClearAllPoints()
         modFrame:SetPoint("TOPLEFT", right, "TOPLEFT", posX, posY)
         modFrame:Show()
+
+        if isImage and meta.locked then
+            SlerneNotes.iconLockRects[#SlerneNotes.iconLockRects + 1] =
+                { x = posX, y = posY, w = modFrame:GetWidth() or 0, h = modFrame:GetHeight() or 0 }
+        end
     end
 
     if SlerneNotes.UpdateDrawings then SlerneNotes.UpdateDrawings() end
