@@ -4,7 +4,7 @@
 ## Author: Slerne
 ## Version: 1.0.0
 ## X-License: MIT
-## X-Credits: Custom art by Tado (instagram.com/tadogram). Secret easter egg art by Taco.
+## X-Credits: Custom art by Tado (instagram.com/tadogram). Secret easter egg art by Taco, Arena Maps & Boss/Add Icons by Ekto from Raidplan.io.
 ## IconTexture: Interface\AddOns\SlerneNotes\img\theme\LogoMinimap
 ## SavedVariables: SlerneNotesDB
 
