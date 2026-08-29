@@ -384,17 +384,46 @@ SlerneNotes.Skin.Button(newCanvasBtn)
 local canvasDropdown = CreateFrame("DropdownButton", "SlerneNotesCanvasDropdown", footer, "WowStyle1DropdownTemplate")
 canvasDropdown:SetPoint("LEFT", newCanvasBtn, "RIGHT", 8, 0); canvasDropdown:SetWidth(118)
 SlerneNotes.Skin.Dropdown(canvasDropdown)
+local function SelectCanvas(cName)
+    Data_SetCanvas(cName)
+    SlerneNotes.UpdateModules()
+    SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
+    if SlerneNotes.UpdatePageTabs then SlerneNotes.UpdatePageTabs() end
+    if SlerneNotes.RefreshFooterBoss then SlerneNotes.RefreshFooterBoss() end
+    if SlerneNotes.RefreshArchiveButton then SlerneNotes.RefreshArchiveButton() end
+end
+
 canvasDropdown:SetupMenu(function(dropdown, rootDescription)
+    local live, archived = {}, {}
     for cName in pairs(Data_GetCanvases() or {}) do
-        rootDescription:CreateRadio(cName, function() return cName == Data_GetActiveCanvas() end, function()
-            Data_SetCanvas(cName);
-            SlerneNotes.UpdateModules()
-            SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
-            if SlerneNotes.UpdatePageTabs then SlerneNotes.UpdatePageTabs() end
-            if SlerneNotes.RefreshFooterBoss then SlerneNotes.RefreshFooterBoss() end
-        end)
+        if Data_IsCanvasArchived(cName) then
+            archived[#archived + 1] = cName
+        else
+            live[#live + 1] = cName
+        end
+    end
+    table.sort(live)
+    table.sort(archived)
+
+    for _, cName in ipairs(live) do
+        rootDescription:CreateRadio(cName,
+            function() return cName == Data_GetActiveCanvas() end,
+            function() SelectCanvas(cName) end)
+    end
+
+    if #archived > 0 then
+        local aMenu = rootDescription:CreateButton("Archive")
+        for _, cName in ipairs(archived) do
+            aMenu:CreateRadio(cName,
+                function() return cName == Data_GetActiveCanvas() end,
+                function() SelectCanvas(cName) end)
+        end
     end
 end)
+
+function SlerneNotes.RefreshCanvasDropdown()
+    if canvasDropdown.GenerateMenu then canvasDropdown:GenerateMenu() end
+end
 
 local function fitButton(b, minW)
     local fs = b:GetFontString()
@@ -402,9 +431,33 @@ local function fitButton(b, minW)
     b:SetWidth(math.max(minW or 60, math.ceil(tw) + 28))
 end
 
+local archiveBtn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
+archiveBtn:SetSize(88, 30)
+archiveBtn:SetPoint("LEFT", canvasDropdown, "RIGHT", 10, 0)
+archiveBtn:SetText("Archive")
+archiveBtn:SetScript("OnClick", function()
+    local name = Data_GetActiveCanvas()
+    if not name then return end
+    if Data_IsCanvasArchived(name) then
+        Data_SetCanvasArchived(name, false)
+        SlerneNotes.RefreshArchiveButton()
+        SlerneNotes.RefreshCanvasDropdown()
+    else
+        SlerneNotes.ShowConfirmArchiveDialog()
+    end
+end)
+SlerneNotes.Skin.Button(archiveBtn)
+if archiveBtn:GetFontString() then archiveBtn:GetFontString():SetFontObject("GameFontNormalSmall") end
+
+function SlerneNotes.RefreshArchiveButton()
+    local name = Data_GetActiveCanvas()
+    archiveBtn:SetText((name and Data_IsCanvasArchived(name)) and "Unarchive" or "Archive")
+end
+SlerneNotes.RefreshArchiveButton()
+
 local delCanvasBtn = CreateFrame("Button", nil, footer, "UIPanelButtonTemplate")
 delCanvasBtn:SetSize(86, 30)
-delCanvasBtn:SetPoint("LEFT", canvasDropdown, "RIGHT", 10, 0)
+delCanvasBtn:SetPoint("LEFT", archiveBtn, "RIGHT", 10, 0)
 delCanvasBtn:SetText("Delete Canvas")
 delCanvasBtn:SetScript("OnClick", function() SlerneNotes.ShowConfirmDeleteDialog() end)
 SlerneNotes.Skin.Button(delCanvasBtn)
@@ -495,6 +548,7 @@ SlerneNotes.Skin.Button(addModBtn)
 fitButton(addModBtn, 90)
 
 frame:SetScript("OnShow", function()
+    if SlerneNotes.RefreshArchiveButton then SlerneNotes.RefreshArchiveButton() end
     SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
     SlerneNotes.UpdateModules()
     SlerneNotes.UpdatePageTabs()

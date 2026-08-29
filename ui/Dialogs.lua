@@ -96,6 +96,91 @@ local function SelectImage(img)
     if imageDropdown.GenerateMenu then imageDropdown:GenerateMenu() end
 end
 
+local fbDropdown = CreateFrame("DropdownButton", "SlerneNotesFlipbookDropdown", newModDialog, "WowStyle1DropdownTemplate")
+fbDropdown:SetWidth(220)
+fbDropdown:SetPoint("TOP", lengthEditBox, "BOTTOM", 0, -25)
+fbDropdown:Hide()
+SlerneNotes.Skin.Dropdown(fbDropdown)
+fbDropdown.selectedFile = nil
+
+local fbPathLabel = fbDropdown:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+fbPathLabel:SetPoint("BOTTOM", fbDropdown, "TOP", 0, 5)
+fbPathLabel:SetText("Flipbook")
+
+local fbNameEdit = CreateFrame("EditBox", nil, newModDialog, "InputBoxTemplate")
+fbNameEdit:SetSize(220, 20)
+fbNameEdit:SetPoint("TOP", fbDropdown, "BOTTOM", 0, -24)
+fbNameEdit:SetAutoFocus(false)
+fbNameEdit:Hide()
+SlerneNotes.Skin.Input(fbNameEdit)
+
+local fbNameLabel = fbNameEdit:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+fbNameLabel:SetPoint("BOTTOM", fbNameEdit, "TOP", 0, 3)
+fbNameLabel:SetText("or type a custom sheet in img/flipbooks/custom")
+
+local function makeNumBox(parent, label, width)
+    local eb = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    eb:SetSize(width or 44, 20)
+    eb:SetAutoFocus(false)
+    eb:Hide()
+    SlerneNotes.Skin.Input(eb)
+    eb.lbl = eb:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    eb.lbl:SetPoint("BOTTOM", eb, "TOP", 0, 4)
+    eb.lbl:SetText(label)
+    return eb
+end
+
+local fbRowsEdit   = makeNumBox(newModDialog, "Rows")
+local fbColsEdit   = makeNumBox(newModDialog, "Cols")
+local fbFramesEdit = makeNumBox(newModDialog, "Frames", 50)
+local fbFpsEdit    = makeNumBox(newModDialog, "FPS")
+
+local fbGrid = { fbRowsEdit, fbColsEdit, fbFramesEdit, fbFpsEdit }
+local function layoutFbGrid()
+    local total, gap = 0, 10
+    for _, eb in ipairs(fbGrid) do total = total + eb:GetWidth() end
+    total = total + gap * (#fbGrid - 1)
+    local x = -total / 2
+    for _, eb in ipairs(fbGrid) do
+        eb:ClearAllPoints()
+        eb:SetPoint("TOPLEFT", newModDialog, "TOP", x, -270)
+        x = x + eb:GetWidth() + gap
+    end
+end
+
+local function SelectFlipbook(fb)
+    fbDropdown.selectedFile = fb and fb.file or nil
+    if fb then
+        fbNameEdit:SetText("")
+        imgWEditBox:SetNumber(fb.w or 128)
+        imgHEditBox:SetNumber(fb.h or 128)
+        fbRowsEdit:SetText(tostring(fb.rows or 1))
+        fbColsEdit:SetText(tostring(fb.cols or 1))
+        fbFramesEdit:SetText(tostring(fb.frames or 1))
+        fbFpsEdit:SetText(tostring(fb.fps or 10))
+        fbPathLabel:SetText("Flipbook: " .. (fb.label or fb.file))
+    else
+        fbPathLabel:SetText("Flipbook")
+    end
+    if fbDropdown.GenerateMenu then fbDropdown:GenerateMenu() end
+end
+
+fbDropdown:SetupMenu(function(dropdown, root)
+    local list = SlerneNotes.Flipbooks or {}
+    if #list == 0 then
+        root:CreateButton("(no built-in flipbooks)", function() end)
+        return
+    end
+    for _, season in ipairs(list) do
+        local sMenu = root:CreateButton(season.season)
+        for _, clip in ipairs(season.clips or {}) do
+            sMenu:CreateRadio(clip.label or clip.file,
+                function() return fbDropdown.selectedFile == clip.file end,
+                function() SelectFlipbook(clip) end)
+        end
+    end
+end)
+
 local function FirstFight()
     local s = SlerneNotes.Arenas and SlerneNotes.Arenas[1]
     local r = s and s.raids and s.raids[1]
@@ -123,7 +208,7 @@ end)
 
 typeDropdown.selectedType = "Assignment"
 typeDropdown:SetupMenu(function(dropdown, rootDescription)
-    local options = {"Assignment", "List", "Action List", "Image", "Text Block"}
+    local options = {"Assignment", "List", "Action List", "Image", "Flipbook", "Text Block"}
     for _, opt in ipairs(options) do
         rootDescription:CreateRadio(opt, function() return typeDropdown.selectedType == opt end, function()
             typeDropdown.selectedType = opt
@@ -133,20 +218,47 @@ typeDropdown:SetupMenu(function(dropdown, rootDescription)
             dupCheckNew:SetShown(slot)
             if not slot then dupCheckNew:SetChecked(false) end
 
+            for _, eb in ipairs(fbGrid) do eb:Hide() end
+
             if opt == "Image" then
                 newModDialog:SetHeight(380)
                 imageDropdown:Show()
                 imageNameEdit:Show()
+                fbDropdown:Hide()
+                fbNameEdit:Hide()
+                imgWEditBox:ClearAllPoints()
+                imgWEditBox:SetPoint("TOPLEFT", imageNameEdit, "BOTTOMLEFT", 30, -25)
+                imgHEditBox:ClearAllPoints()
+                imgHEditBox:SetPoint("TOPLEFT", imgWEditBox, "TOPRIGHT", 40, 0)
                 imgWEditBox:Show()
                 imgHEditBox:Show()
                 if not imageDropdown.selectedFile then
                     SelectImage(FirstFight())
+                end
+            elseif opt == "Flipbook" then
+                newModDialog:SetHeight(400)
+                imageDropdown:Hide()
+                imageNameEdit:Hide()
+                fbDropdown:Show()
+                fbNameEdit:Show()
+                layoutFbGrid()
+                for _, eb in ipairs(fbGrid) do eb:Show() end
+                imgWEditBox:ClearAllPoints()
+                imgWEditBox:SetPoint("TOPLEFT", newModDialog, "TOP", -70, -318)
+                imgHEditBox:ClearAllPoints()
+                imgHEditBox:SetPoint("TOPLEFT", imgWEditBox, "TOPRIGHT", 40, 0)
+                imgWEditBox:Show()
+                imgHEditBox:Show()
+                if not fbDropdown.selectedFile and strtrim(fbNameEdit:GetText() or "") == "" then
+                    SelectFlipbook(SlerneNotes.FirstFlipbook())
                 end
             else
                 local h = slot and 262 or 200
                 newModDialog:SetHeight(h)
                 imageDropdown:Hide()
                 imageNameEdit:Hide()
+                fbDropdown:Hide()
+                fbNameEdit:Hide()
                 imgWEditBox:Hide()
                 imgHEditBox:Hide()
             end
@@ -163,9 +275,17 @@ createModBtn:SetScript("OnClick", function()
     local text = newModEditBox:GetText()
     if text and strtrim(text) ~= "" then
 
-        local imgFile = strtrim(imageNameEdit:GetText() or "")
-        if imgFile == "" then imgFile = imageDropdown.selectedFile or "" end
-        if imgFile ~= "" and not imgFile:find("%.") then imgFile = imgFile .. ".tga" end
+        local isFlipbook = (typeDropdown.selectedType == "Flipbook")
+        local imgFile
+        if isFlipbook then
+            imgFile = strtrim(fbNameEdit:GetText() or "")
+            if imgFile == "" then imgFile = fbDropdown.selectedFile or "" end
+            if imgFile ~= "" and not imgFile:find("%.") then imgFile = imgFile .. ".png" end
+        else
+            imgFile = strtrim(imageNameEdit:GetText() or "")
+            if imgFile == "" then imgFile = imageDropdown.selectedFile or "" end
+            if imgFile ~= "" and not imgFile:find("%.") then imgFile = imgFile .. ".tga" end
+        end
         Data_AddModule(
             strtrim(text),
             typeDropdown.selectedType,
@@ -174,6 +294,12 @@ createModBtn:SetScript("OnClick", function()
             imgWEditBox:GetNumber(),
             imgHEditBox:GetNumber()
         )
+        if isFlipbook then
+            Data_SetModuleFlipbook(strtrim(text), imgFile,
+                imgWEditBox:GetNumber(), imgHEditBox:GetNumber(),
+                tonumber(fbRowsEdit:GetText()), tonumber(fbColsEdit:GetText()),
+                tonumber(fbFramesEdit:GetText()), tonumber(fbFpsEdit:GetText()))
+        end
         if typeDropdown.selectedType == "List" or typeDropdown.selectedType == "Action List" then
             Data_SetModuleAllowDup(strtrim(text), dupCheckNew:GetChecked())
         end
@@ -192,10 +318,15 @@ cancelModBtn:SetScript("OnClick", function() newModDialog:Hide() end)
 newModDialog:SetScript("OnShow", function()
     newModEditBox:SetText(""); lengthEditBox:SetNumber(10)
     imageDropdown.selectedFile = nil
+    fbDropdown.selectedFile = nil
     imageNameEdit:SetText("")
+    fbNameEdit:SetText("")
+    fbPathLabel:SetText("Flipbook")
     imgWEditBox:SetNumber(400); imgHEditBox:SetNumber(300)
     typeDropdown.selectedType = "Assignment"
     lengthEditBox:Hide(); imageDropdown:Hide(); imageNameEdit:Hide()
+    fbDropdown:Hide(); fbNameEdit:Hide()
+    for _, eb in ipairs(fbGrid) do eb:Hide() end
     imgWEditBox:Hide(); imgHEditBox:Hide()
     dupCheckNew:SetChecked(false); dupCheckNew:Hide()
 end)
@@ -268,6 +399,8 @@ createCanvasBtn:SetScript("OnClick", function()
     if SlerneNotes.UpdatePageTabs then SlerneNotes.UpdatePageTabs() end
     if SlerneNotes.RefreshFightPalette then SlerneNotes.RefreshFightPalette() end
     if SlerneNotes.RefreshFooterBoss then SlerneNotes.RefreshFooterBoss() end
+    if SlerneNotes.RefreshArchiveButton then SlerneNotes.RefreshArchiveButton() end
+    if SlerneNotes.RefreshCanvasDropdown then SlerneNotes.RefreshCanvasDropdown() end
 end)
 SlerneNotes.Skin.Button(createCanvasBtn)
 
@@ -304,6 +437,8 @@ confirmDeleteYes:SetScript("OnClick", function()
     SlerneNotes.UpdateModules()
     SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
     if SlerneNotes.UpdatePageTabs then SlerneNotes.UpdatePageTabs() end
+    if SlerneNotes.RefreshArchiveButton then SlerneNotes.RefreshArchiveButton() end
+    if SlerneNotes.RefreshCanvasDropdown then SlerneNotes.RefreshCanvasDropdown() end
     confirmDeleteDialog:Hide()
 end)
 SlerneNotes.Skin.Button(confirmDeleteYes)
@@ -468,7 +603,28 @@ eiHEdit:SetNumeric(true); eiHEdit:SetAutoFocus(false); SlerneNotes.Skin.Input(ei
 local eiHLabel = eiHEdit:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 eiHLabel:SetPoint("BOTTOM", eiHEdit, "TOP", 0, 5); eiHLabel:SetText("Height")
 
-local editModOptional = { rowsEdit, dupCheck, eiDropdown, eiNameEdit, eiWEdit, eiHEdit }
+local efbDropdown = CreateFrame("DropdownButton", "SlerneNotesEditFbDropdown", editModDialog, "WowStyle1DropdownTemplate")
+efbDropdown:SetWidth(220)
+SlerneNotes.Skin.Dropdown(efbDropdown)
+efbDropdown.selectedFile = nil
+local efbPathLabel = efbDropdown:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+efbPathLabel:SetPoint("BOTTOMLEFT", efbDropdown, "TOPLEFT", 2, 5); efbPathLabel:SetText("Flipbook")
+
+local efbNameEdit = CreateFrame("EditBox", nil, editModDialog, "InputBoxTemplate")
+efbNameEdit:SetSize(220, 20); efbNameEdit:SetAutoFocus(false)
+SlerneNotes.Skin.Input(efbNameEdit)
+local efbNameLabel = efbNameEdit:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+efbNameLabel:SetPoint("BOTTOMLEFT", efbNameEdit, "TOPLEFT", 0, 3)
+efbNameLabel:SetText("or type a custom sheet in img/flipbooks/custom")
+
+local efbRowsEdit   = makeNumBox(editModDialog, "Rows")
+local efbColsEdit   = makeNumBox(editModDialog, "Cols")
+local efbFramesEdit = makeNumBox(editModDialog, "Frames", 50)
+local efbFpsEdit    = makeNumBox(editModDialog, "FPS")
+local efbGrid = { efbRowsEdit, efbColsEdit, efbFramesEdit, efbFpsEdit }
+
+local editModOptional = { rowsEdit, dupCheck, eiDropdown, eiNameEdit, eiWEdit, eiHEdit,
+                          efbDropdown, efbNameEdit, efbRowsEdit, efbColsEdit, efbFramesEdit, efbFpsEdit }
 local function showCtl(c) c:SetAlpha(1); c:Show() end
 
 local function hideCtl(c)
@@ -508,6 +664,36 @@ eiDropdown:SetupMenu(function(dropdown, root)
     end
 end)
 
+local function efbSelect(fb)
+    efbDropdown.selectedFile = fb and fb.file or nil
+    if fb then
+        efbNameEdit:SetText("")
+        eiWEdit:SetNumber(fb.w or 128)
+        eiHEdit:SetNumber(fb.h or 128)
+        efbRowsEdit:SetText(tostring(fb.rows or 1))
+        efbColsEdit:SetText(tostring(fb.cols or 1))
+        efbFramesEdit:SetText(tostring(fb.frames or 1))
+        efbFpsEdit:SetText(tostring(fb.fps or 10))
+        efbPathLabel:SetText("Flipbook: " .. (fb.label or fb.file))
+    else
+        efbPathLabel:SetText("Flipbook")
+    end
+    if efbDropdown.GenerateMenu then efbDropdown:GenerateMenu() end
+end
+
+efbDropdown:SetupMenu(function(dropdown, root)
+    local list = SlerneNotes.Flipbooks or {}
+    if #list == 0 then root:CreateButton("(no built-in flipbooks)", function() end); return end
+    for _, season in ipairs(list) do
+        local sMenu = root:CreateButton(season.season)
+        for _, clip in ipairs(season.clips or {}) do
+            sMenu:CreateRadio(clip.label or clip.file,
+                function() return efbDropdown.selectedFile == clip.file end,
+                function() efbSelect(clip) end)
+        end
+    end
+end)
+
 local emSaveBtn = CreateFrame("Button", nil, editModDialog, "UIPanelButtonTemplate")
 emSaveBtn:SetSize(85, 24); emSaveBtn:SetPoint("BOTTOM", -48, 14); emSaveBtn:SetText("Save")
 SlerneNotes.Skin.Button(emSaveBtn)
@@ -534,6 +720,14 @@ emSaveBtn:SetScript("OnClick", function()
         if imgFile ~= "" and not imgFile:find("%.") then imgFile = imgFile .. ".tga" end
         Data_SetModuleImage(eff, imgFile, eiWEdit:GetNumber(), eiHEdit:GetNumber())
     end
+    if editModDialog.hasFlipbook then
+        local fbFile = strtrim(efbNameEdit:GetText() or "")
+        if fbFile == "" then fbFile = efbDropdown.selectedFile or "" end
+        if fbFile ~= "" and not fbFile:find("%.") then fbFile = fbFile .. ".png" end
+        Data_SetModuleFlipbook(eff, fbFile, eiWEdit:GetNumber(), eiHEdit:GetNumber(),
+            tonumber(efbRowsEdit:GetText()), tonumber(efbColsEdit:GetText()),
+            tonumber(efbFramesEdit:GetText()), tonumber(efbFpsEdit:GetText()))
+    end
 
     SlerneNotes.UpdateModules()
     SlerneNotes.UpdateRaidList(SlerneNotes:GetRoster())
@@ -550,8 +744,10 @@ function SlerneNotes.ShowEditModuleDialog(modName, meta)
     local t = meta and meta.type or "Assignment"
     local hasRows = (t == "List" or t == "Image List" or t == "Action List")
     local hasImage = (t == "Image" or t == "Image List")
+    local hasFlipbook = (t == "Flipbook")
     editModDialog.hasRows = hasRows
     editModDialog.hasImage = hasImage
+    editModDialog.hasFlipbook = hasFlipbook
 
     for _, c in ipairs(editModOptional) do hideCtl(c) end
 
@@ -604,9 +800,90 @@ function SlerneNotes.ShowEditModuleDialog(modName, meta)
         cursor = cursor - 34
     end
 
+    if hasFlipbook then
+        local img = meta and meta.image or ""
+        local fb = SlerneNotes.GetFlipbook and SlerneNotes.GetFlipbook(img)
+        if fb then
+            efbDropdown.selectedFile = img
+            efbNameEdit:SetText("")
+            efbPathLabel:SetText("Flipbook: " .. (fb.label or fb.file))
+        else
+            efbDropdown.selectedFile = nil
+            efbNameEdit:SetText((img:gsub("%.png$", "")))
+            efbPathLabel:SetText("Flipbook")
+        end
+        eiWEdit:SetNumber((meta and meta.imgW) or (fb and fb.w) or 128)
+        eiHEdit:SetNumber((meta and meta.imgH) or (fb and fb.h) or 128)
+        efbRowsEdit:SetText(tostring((meta and meta.fbRows) or (fb and fb.rows) or 1))
+        efbColsEdit:SetText(tostring((meta and meta.fbCols) or (fb and fb.cols) or 1))
+        efbFramesEdit:SetText(tostring((meta and meta.fbFrames) or (fb and fb.frames) or 1))
+        efbFpsEdit:SetText(tostring((meta and meta.fbFps) or (fb and fb.fps) or 10))
+        if efbDropdown.GenerateMenu then efbDropdown:GenerateMenu() end
+
+        cursor = cursor - 8
+        efbDropdown:ClearAllPoints(); efbDropdown:SetPoint("TOPLEFT", pad - 2, cursor); showCtl(efbDropdown)
+        cursor = cursor - 44
+        efbNameEdit:ClearAllPoints(); efbNameEdit:SetPoint("TOPLEFT", pad, cursor); showCtl(efbNameEdit)
+        cursor = cursor - 46
+        local gx = pad
+        for _, eb in ipairs(efbGrid) do
+            eb:ClearAllPoints(); eb:SetPoint("TOPLEFT", gx, cursor); showCtl(eb)
+            gx = gx + (eb:GetWidth() or 44) + 10
+        end
+        cursor = cursor - 46
+        eiWEdit:ClearAllPoints(); eiWEdit:SetPoint("TOPLEFT", pad + 20, cursor); showCtl(eiWEdit)
+        eiHEdit:ClearAllPoints(); eiHEdit:SetPoint("TOPLEFT", eiWEdit, "TOPRIGHT", 40, 0); showCtl(eiHEdit)
+        cursor = cursor - 34
+    end
+
     editModDialog:SetHeight(math.max(150, -cursor + 48))
     editModDialog:Show()
 end
+
+local confirmArchiveDialog = CreateFrame("Frame", "SlerneNotesConfirmArchiveDialog", frame, "BackdropTemplate")
+confirmArchiveDialog:SetSize(340, 140)
+confirmArchiveDialog:SetPoint("CENTER")
+confirmArchiveDialog:SetFrameStrata("FULLSCREEN_DIALOG")
+confirmArchiveDialog:SetFrameLevel(500)
+SlerneNotes.Skin.Panel(confirmArchiveDialog, SlerneNotes.Theme.windowBot, SlerneNotes.Theme.borderLight)
+confirmArchiveDialog:Hide()
+
+local confirmArchiveTitle = confirmArchiveDialog:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+confirmArchiveTitle:SetPoint("TOP", 0, -22)
+confirmArchiveTitle:SetText("Archive this canvas?")
+SlerneNotes.Skin.Title(confirmArchiveTitle)
+
+local confirmArchiveBody = confirmArchiveDialog:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+confirmArchiveBody:SetPoint("TOP", confirmArchiveTitle, "BOTTOM", 0, -10)
+confirmArchiveBody:SetWidth(290)
+confirmArchiveBody:SetText("It moves into the Archive folder in the canvas dropdown. Nothing is deleted.")
+confirmArchiveBody:SetTextColor(0.8, 0.8, 0.8)
+
+local confirmArchiveYes = CreateFrame("Button", nil, confirmArchiveDialog, "UIPanelButtonTemplate")
+confirmArchiveYes:SetSize(80, 25)
+confirmArchiveYes:SetPoint("BOTTOMLEFT", 55, 18)
+confirmArchiveYes:SetText("Archive")
+confirmArchiveYes:SetScript("OnClick", function()
+    Data_SetCanvasArchived(Data_GetActiveCanvas(), true)
+    if SlerneNotes.RefreshArchiveButton then SlerneNotes.RefreshArchiveButton() end
+    if SlerneNotes.RefreshCanvasDropdown then SlerneNotes.RefreshCanvasDropdown() end
+    confirmArchiveDialog:Hide()
+end)
+SlerneNotes.Skin.Button(confirmArchiveYes)
+
+local confirmArchiveNo = CreateFrame("Button", nil, confirmArchiveDialog, "UIPanelButtonTemplate")
+confirmArchiveNo:SetSize(80, 25)
+confirmArchiveNo:SetPoint("BOTTOMRIGHT", -55, 18)
+confirmArchiveNo:SetText("Cancel")
+confirmArchiveNo:SetScript("OnClick", function() confirmArchiveDialog:Hide() end)
+SlerneNotes.Skin.Button(confirmArchiveNo)
+
+confirmArchiveDialog:SetScript("OnShow", function()
+    local name = Data_GetActiveCanvas()
+    confirmArchiveTitle:SetText("Archive \"" .. (name or "") .. "\"?")
+end)
+
+function SlerneNotes.ShowConfirmArchiveDialog() confirmArchiveDialog:Show() end
 
 local dialogDimmer = CreateFrame("Frame", nil, UIParent)
 dialogDimmer:SetAllPoints(UIParent)
@@ -626,7 +903,7 @@ local function PrepDialog(dlg)
     end)
     dlg:HookScript("OnHide", function() dialogDimmer:Hide() end)
 end
-for _, d in ipairs({ newModDialog, newCanvasDialog, confirmDeleteDialog, confirmDelPageDialog, newDummyDialog, editModDialog }) do
+for _, d in ipairs({ newModDialog, newCanvasDialog, confirmDeleteDialog, confirmDelPageDialog, newDummyDialog, editModDialog, confirmArchiveDialog }) do
     PrepDialog(d)
 end
 

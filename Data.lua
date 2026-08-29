@@ -193,6 +193,19 @@ function Data_DeleteCanvas(canvasName)
     SlerneNotesDB.activePage = 1
 end
 
+function Data_IsCanvasArchived(name)
+    name = name or SlerneNotesDB.activeCanvas
+    local c = name and SlerneNotesDB.canvases and SlerneNotesDB.canvases[name]
+    return (c and c.archived) and true or false
+end
+
+function Data_SetCanvasArchived(name, flag)
+    if not (name and SlerneNotesDB.canvases) then return end
+    local c = SlerneNotesDB.canvases[name]
+    if not c then return end
+    c.archived = flag and true or nil
+end
+
 function Data_GetActivePage() return SlerneNotesDB.activePage or 1 end
 
 function Data_GetPageCount(name)
@@ -280,6 +293,19 @@ function Data_SetModuleImage(module, path, w, h)
         if w and w > 0 then m.imgW = w end
         if h and h > 0 then m.imgH = h end
     end
+end
+
+function Data_SetModuleFlipbook(module, path, w, h, rows, cols, frames, fps)
+    local layout = Data_GetCurrentLayout()
+    if not (layout and layout[module]) then return end
+    local m = layout[module].meta
+    m.image = path or ""
+    if w and w > 0 then m.imgW = w end
+    if h and h > 0 then m.imgH = h end
+    m.fbRows = tonumber(rows) or nil
+    m.fbCols = tonumber(cols) or nil
+    m.fbFrames = tonumber(frames) or nil
+    m.fbFps = tonumber(fps) or nil
 end
 
 function Data_SetReminderText(module, text)

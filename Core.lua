@@ -216,6 +216,11 @@ function SlerneNotes.GetExportString()
         table.insert(m, Escape(meta.posX))
         table.insert(m, Escape(meta.posY))
 
+        table.insert(m, Escape(meta.fbRows))
+        table.insert(m, Escape(meta.fbCols))
+        table.insert(m, Escape(meta.fbFrames))
+        table.insert(m, Escape(meta.fbFps))
+
         table.insert(parts, table.concat(m, ":"))
     end
     return table.concat(parts, ";")

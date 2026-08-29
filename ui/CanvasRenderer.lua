@@ -27,6 +27,63 @@ local function GetIconPath(iconName)
     return "Interface\\AddOns\\SlerneNotes\\img\\icons\\" .. iconName .. ".tga"
 end
 
+local function GetFlipbookPath(name)
+    if not name or name == "" then return "" end
+    if string.find(name, "[\\/]") then
+        return "Interface\\AddOns\\SlerneNotes\\img\\flipbooks\\base\\" .. name
+    end
+    return "Interface\\AddOns\\SlerneNotes\\img\\flipbooks\\custom\\" .. name
+end
+
+local function FlipbookParams(meta)
+    local fb = SlerneNotes.GetFlipbook and SlerneNotes.GetFlipbook(meta.image) or nil
+    local rows   = tonumber(meta.fbRows)   or (fb and fb.rows)   or 1
+    local cols   = tonumber(meta.fbCols)   or (fb and fb.cols)   or 1
+    local frames = tonumber(meta.fbFrames) or (fb and fb.frames) or (rows * cols)
+    local fps    = tonumber(meta.fbFps)    or (fb and fb.fps)    or 10
+    local w = meta.imgW or (fb and fb.w) or 128
+    local h = meta.imgH or (fb and fb.h) or 128
+    return rows, cols, frames, fps, w, h
+end
+
+local function ApplyFlipbook(tex, file, rows, cols, frames, fps)
+    local key = table.concat({ file or "", rows, cols, frames, fps }, "|")
+    if tex._fbKey == key and tex._fbGroup then
+        if not tex._fbGroup:IsPlaying() and not tex._fbPaused then tex._fbGroup:Play() end
+        return
+    end
+    if tex._fbGroup then tex._fbGroup:Stop() end
+    tex:SetTexCoord(0, 1, 0, 1)
+    local ag = tex._fbGroup or tex:CreateAnimationGroup()
+    local anim = tex._fbAnim or ag:CreateAnimation("FlipBook")
+    anim:SetFlipBookRows(rows)
+    anim:SetFlipBookColumns(cols)
+    anim:SetFlipBookFrames(frames)
+    anim:SetDuration(frames / math.max(0.1, fps))
+    ag:SetLooping("REPEAT")
+    tex._fbGroup, tex._fbAnim, tex._fbKey, tex._fbPaused = ag, anim, key, false
+    ag:Play()
+end
+
+local function StopFlipbook(tex)
+    if tex._fbGroup then tex._fbGroup:Stop() end
+    tex._fbKey, tex._fbPaused = nil, false
+    tex:SetTexCoord(0, 1, 0, 1)
+end
+
+local function ToggleFlipbook(tex)
+    local ag = tex and tex._fbGroup
+    if not ag then return false end
+    if ag.IsPaused and ag:IsPaused() then
+        ag:Play(); tex._fbPaused = false
+    elseif ag:IsPlaying() then
+        ag:Pause(); tex._fbPaused = true
+    else
+        ag:Play(); tex._fbPaused = false
+    end
+    return tex._fbPaused
+end
+
 local measureFS
 local function MaxLineWidth(text)
     if not measureFS then
@@ -196,11 +253,68 @@ function SlerneNotes.UpdateModules()
             end)
             modFrame.swapBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+            modFrame.sortBtn = CreateFrame("Button", nil, modFrame)
+            modFrame.sortBtn:SetSize(22, 22)
+            modFrame.sortBtn:SetPoint("RIGHT", modFrame.swapBtn, "LEFT", -2, 0)
+            modFrame.sortBtn:EnableMouse(true)
+            modFrame.sortBtn:RegisterForClicks("LeftButtonUp")
+            SlerneNotes.Skin.IconBox(modFrame.sortBtn)
+            modFrame.sortBtn.glyph = modFrame.sortBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            modFrame.sortBtn.glyph:SetPoint("CENTER")
+            modFrame.sortBtn.glyph:SetText("S")
+            SlerneNotes.Skin.TintTexture(modFrame.sortBtn.glyph)
+            modFrame.sortBtn:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText("Sort raid groups")
+                GameTooltip:AddLine("Rearranges your raid so list slots 1-5 fill group 1, slots 6-10 fill group 2, and so on.", 0.8, 0.8, 0.8, true)
+                GameTooltip:AddLine("Needs raid lead or assist, out of combat.", 0.8, 0.8, 0.8)
+                GameTooltip:Show()
+            end)
+            modFrame.sortBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
             if modFrame.closeBtn.SetToplevel then modFrame.closeBtn:SetToplevel(false) end
             modFrame.closeBtn:SetFrameLevel(modFrame.lockBtn:GetFrameLevel())
             modFrame.swapBtn:SetFrameLevel(modFrame.lockBtn:GetFrameLevel())
+            modFrame.sortBtn:SetFrameLevel(modFrame.lockBtn:GetFrameLevel())
 
             modFrame.displayImage = modFrame:CreateTexture(nil, "ARTWORK")
+
+            modFrame.fbClick = CreateFrame("Button", nil, modFrame)
+            modFrame.fbClick:RegisterForClicks("LeftButtonUp")
+            modFrame.fbClick:RegisterForDrag("LeftButton")
+            modFrame.fbClick:Hide()
+            modFrame.fbClick:SetScript("OnDragStart", function(self)
+                local p = self:GetParent()
+                local h = p:GetScript("OnDragStart")
+                if h then h(p) end
+            end)
+            modFrame.fbClick:SetScript("OnDragStop", function(self)
+                local p = self:GetParent()
+                local h = p:GetScript("OnDragStop")
+                if h then h(p) end
+            end)
+            modFrame.fbClick:SetScript("OnClick", function(self)
+                local paused = ToggleFlipbook(self:GetParent().displayImage)
+                self.pauseIcon:SetShown(paused and true or false)
+            end)
+            modFrame.fbClick:SetScript("OnEnter", function(self)
+                GameTooltip:SetOwner(self, "ANCHOR_TOP")
+                GameTooltip:SetText("Click to pause or resume")
+                GameTooltip:Show()
+            end)
+            modFrame.fbClick:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+            local pauseIcon = CreateFrame("Frame", nil, modFrame.fbClick)
+            pauseIcon:SetSize(24, 24)
+            pauseIcon:SetPoint("TOPRIGHT", -5, -5)
+            pauseIcon:Hide()
+            local pbg = pauseIcon:CreateTexture(nil, "BACKGROUND")
+            pbg:SetAllPoints(); pbg:SetColorTexture(0, 0, 0, 0.55)
+            local bar1 = pauseIcon:CreateTexture(nil, "OVERLAY")
+            bar1:SetColorTexture(1, 1, 1, 0.9); bar1:SetSize(4, 13); bar1:SetPoint("CENTER", -4, 0)
+            local bar2 = pauseIcon:CreateTexture(nil, "OVERLAY")
+            bar2:SetColorTexture(1, 1, 1, 0.9); bar2:SetSize(4, 13); bar2:SetPoint("CENTER", 4, 0)
+            modFrame.fbClick.pauseIcon = pauseIcon
 
             modFrame.playerTexts = {}
             modFrame.listRows = {}
@@ -214,6 +328,10 @@ function SlerneNotes.UpdateModules()
         for _, row in ipairs(modFrame.listRows) do row:Hide() end
         for _, row in ipairs(modFrame.actionRows) do row:Hide() end
         modFrame.displayImage:Hide()
+        if modFrame.fbClick then modFrame.fbClick:Hide() end
+        if modFrame.displayImage._fbGroup and meta.type ~= "Flipbook" then
+            StopFlipbook(modFrame.displayImage)
+        end
         if modFrame.editBox then modFrame.editBox:Hide() end
 
         modFrame.closeBtn:SetScript("OnClick", function()
@@ -249,6 +367,16 @@ function SlerneNotes.UpdateModules()
         modFrame.swapBtn:SetScript("OnClick", function()
             SlerneNotes.ShowEditModuleDialog(modName, meta)
         end)
+
+        if meta.type == "List" or meta.type == "Image List" then
+            modFrame.sortBtn:Show()
+            modFrame.sortBtn:SetScript("OnClick", function()
+                SlerneNotes.SortRaidToList(modName)
+            end)
+        else
+            modFrame.sortBtn:Hide()
+        end
+
         modFrame.title:SetText(modName)
 
         local titleWidth = modFrame.title:GetStringWidth() + 156
@@ -459,6 +587,24 @@ function SlerneNotes.UpdateModules()
                     table.insert(SlerneNotes.dropTargets, { frame = row.btn, module = modName, slot = i, type = "ListSlot" })
                 end
             end
+
+        elseif meta.type == "Flipbook" then
+
+            local rows, cols, frames, fps, imgW, imgH = FlipbookParams(meta)
+
+            modFrame.displayImage:SetTexture(GetFlipbookPath(meta.image))
+            modFrame.displayImage:SetSize(imgW, imgH)
+            modFrame.displayImage:ClearAllPoints()
+            modFrame.displayImage:SetPoint("TOP", modFrame, "TOP", 0, -30)
+            modFrame.displayImage:Show()
+            ApplyFlipbook(modFrame.displayImage, meta.image, rows, cols, frames, fps)
+
+            modFrame.fbClick:ClearAllPoints()
+            modFrame.fbClick:SetAllPoints(modFrame.displayImage)
+            modFrame.fbClick.pauseIcon:SetShown(modFrame.displayImage._fbPaused and true or false)
+            modFrame.fbClick:Show()
+
+            modFrame:SetSize(math.max(imgW + 30, titleWidth), math.max(40, imgH + 50))
 
         elseif meta.type == "Action List" then
 

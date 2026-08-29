@@ -8,8 +8,11 @@
 SavedVariables/
 *.lua.bak
 
-# User-supplied maps
-img/maps/custom/
+# User-supplied art: keep the folders and their ReadMe, ignore the contents
+img/maps/custom/*
+!img/maps/custom/ReadMe.txt
+img/flipbooks/custom/*
+!img/flipbooks/custom/ReadMe.txt
 
 # OS / editor cruft
 .DS_Store
