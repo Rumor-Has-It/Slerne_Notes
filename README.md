@@ -29,6 +29,13 @@ Open the window with `/sn` or the minimap button.
 - Press **S** on a List module to sort your raid subgroups to match it.
 - Archive canvases you are done with. They move into an Archive folder in the canvas dropdown instead of cluttering the list.
 
+## Built-in art
+
+Arena maps ship for Midnight Season 1 and Season 2, with encounter icon packs
+for the Season 2 bosses. Animated Flipbook clips ship for four Season 2
+mechanics: Sentinels Intermission, Vashnik Froth, Twin Fangs Soak, and Coiled
+Altar Ghosts.
+
 ## Custom art
 
 Two folders are yours to fill, and both are ignored by git:

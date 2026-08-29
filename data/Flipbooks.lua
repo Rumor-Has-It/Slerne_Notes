@@ -10,6 +10,8 @@ SlerneNotes.Flipbooks = {
               rows = 7, cols = 11, frames = 76, fps = 7.5, w = 448, h = 374 },
             { label = "Twin Fangs Soak",        file = "midnight_s2\\FangsSoak.png",
               rows = 6, cols = 12, frames = 72, fps = 7.5, w = 448, h = 370 },
+            { label = "Coiled Altar Ghosts",    file = "midnight_s2\\CoiledAltarGhosts.png",
+              rows = 7, cols = 9,  frames = 62, fps = 7.5, w = 448, h = 342 },
         },
     },
 }
