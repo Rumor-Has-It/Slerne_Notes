@@ -12,6 +12,10 @@ SlerneNotes.Flipbooks = {
               rows = 6, cols = 12, frames = 72, fps = 7.5, w = 448, h = 370 },
             { label = "Coiled Altar Ghosts",    file = "midnight_s2\\CoiledAltarGhosts.png",
               rows = 7, cols = 9,  frames = 62, fps = 7.5, w = 448, h = 342 },
+            { label = "Ula'tek Tethers",        file = "midnight_s2\\UlatekTethers.png",
+              rows = 6, cols = 8,  frames = 47, fps = 7.5, w = 448, h = 416 },
+            { label = "Ula'tek Soaks",          file = "midnight_s2\\UlatekSoaks.png",
+              rows = 8, cols = 11, frames = 87, fps = 7.5, w = 448, h = 411 },
         },
     },
 }
