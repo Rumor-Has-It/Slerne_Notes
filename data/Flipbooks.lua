@@ -4,6 +4,8 @@ SlerneNotes.Flipbooks = {
     {
         season = "Midnight S2",
         clips = {
+            { label = "Nek'zali Downstairs",    file = "midnight_s2\\NekzaliDownstairs.png",
+              rows = 10, cols = 12, frames = 111, fps = 7.5, w = 448, h = 413 },
             { label = "Sentinels Intermission", file = "midnight_s2\\SentinelsIntermission.png",
               rows = 7, cols = 7,  frames = 47, fps = 7.5, w = 448, h = 390 },
             { label = "Vashnik Froth",          file = "midnight_s2\\VashnikFroth.png",
