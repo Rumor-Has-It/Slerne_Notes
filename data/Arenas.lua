@@ -99,6 +99,13 @@ SlerneNotes.Arenas = {
                       icons = { "NymrissaBoss", "NymrissaAdd1", "NymrissaAdd2", "NymrissaAdd3" } },
                 },
             },
+            {
+                raid = "The Unbinding of Kith'ix",
+                fights = {
+                    { label = "Kith'ix", file = "midnight_s2\\the_unbinding_of_kithix\\Kithix.tga", w = 778, h = 438,
+                      icons = { "KithixBoss", "KithixAdd1", "KithixAdd2", "KithixAdd3", "KithixAdd4", "KithixNpc1" } },
+                },
+            },
         },
     },
 }

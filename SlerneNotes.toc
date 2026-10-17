@@ -1,8 +1,8 @@
-## Interface: 120007, 120100
+## Interface: 120100, 120105
 ## Title: Slerne Notes
 ## Notes: Organize raid members into custom categories with drag-and-drop
 ## Author: Slerne
-## Version: 1.1.4
+## Version: 1.2.0
 ## X-License: MIT
 ## X-Credits: Custom art by Tado (instagram.com/tadogram). Secret easter egg art by Taco.
 ## IconTexture: Interface\AddOns\SlerneNotes\img\theme\LogoMinimap
