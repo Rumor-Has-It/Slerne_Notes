@@ -32,10 +32,11 @@ Open the window with `/sn` or the minimap button.
 ## Built-in art
 
 Arena maps ship for Midnight Season 1 and Season 2, with encounter icon packs
-for the Season 2 bosses. Animated Flipbook clips ship for ten Season 2
+for the Season 2 bosses. Animated Flipbook clips ship for thirteen Season 2
 mechanics: Nek'zali Downstairs, Sentinels Intermission, Sentinels Debuffs,
 Sentinels Group Soak, Vashnik Froth, Vashnik Totems, Twin Fangs Soak, Coiled
-Altar Ghosts, Ula'tek Tethers, and Ula'tek Soaks.
+Altar P1, Coiled Altar P2, Coiled Altar P3, Coiled Altar Ghosts, Ula'tek
+Tethers, and Ula'tek Soaks.
 
 ## Custom art
 
